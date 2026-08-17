@@ -6,6 +6,28 @@
 # Completely ignore only the previous_backend directory
 previous_backend/
 
+# ===================== PYTHON BACKEND =====================
+
+# Virtual environment
+backend_app/venv/
+backend_app/.venv/
+
+# Python cache
+backend_app/__pycache__/
+backend_app/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+backend_app/.env
+backend_app/.env.*
+
+# Database
+backend_app/*.db
+backend_app/*.sqlite
+backend_app/*.sqlite3
+
 # ===================== FLUTTER/DART =======================
 
 # Dart tool & build
