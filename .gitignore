@@ -3,8 +3,10 @@
 # ==========================================================
 
 # ===================== IGNORE OLD BACKEND =================
-# Completely ignore only the previous_backend directory
+# Completely ignore the previous backend directories
 previous_backend/
+previous_backend_reference_codebase/
+previous_livekit_working_backend_codebase/
 
 # ===================== PYTHON BACKEND =====================
 
