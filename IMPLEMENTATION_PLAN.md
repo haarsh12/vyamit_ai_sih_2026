@@ -141,7 +141,7 @@ backend_app/
 Read-only tools ship first:
 
 - `get_shop_profile`
-- `search_inventory` and `get_stock_availability`
+- `search_inventory` and catalog availability lookup. The current inventory model has no stock-quantity field, so the agent must not claim numerical stock until a separately approved stock-ledger feature is added.
 - `find_customer`, `get_customer_purchase_summary`, `search_bills`
 - `get_sales_summary`
 - `get_gst_configuration`
