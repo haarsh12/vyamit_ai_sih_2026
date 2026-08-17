@@ -1,0 +1,100 @@
+# ==========================================================
+# SNAPBILL FULL STACK MONOREPO GITIGNORE
+# ==========================================================
+
+
+# ===================== FLUTTER ============================
+
+# Dart tool & build
+snapbill_frontend/.dart_tool/
+snapbill_frontend/build/
+snapbill_frontend/.packages
+snapbill_frontend/.flutter-plugins
+snapbill_frontend/.flutter-plugins-dependencies
+snapbill_frontend/.metadata
+
+# Flutter Web
+snapbill_frontend/web/build/
+
+# Android
+snapbill_frontend/android/.gradle/
+snapbill_frontend/android/app/build/
+snapbill_frontend/android/local.properties
+snapbill_frontend/android/captures/
+
+# iOS
+snapbill_frontend/ios/Pods/
+snapbill_frontend/ios/.symlinks/
+snapbill_frontend/ios/Flutter/Flutter.framework
+snapbill_frontend/ios/Flutter/Flutter.podspec
+
+# macOS
+snapbill_frontend/macos/Flutter/ephemeral/
+
+# Windows
+snapbill_frontend/windows/flutter/ephemeral/
+
+# Linux
+snapbill_frontend/linux/flutter/ephemeral/
+
+# Generated logs
+snapbill_frontend/*.log
+
+
+# ===================== PYTHON BACKEND =====================
+
+# Virtual environment
+mykirana_backend/venv/
+mykirana_backend/.venv/
+
+# Environment variables (IMPORTANT)
+mykirana_backend/.env
+
+# Python cache
+mykirana_backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# SQLite (if ever used)
+*.sqlite3
+
+# Uvicorn logs
+*.log
+
+
+# ===================== IDE & EDITORS ======================
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+
+# ===================== GENERAL ============================
+
+# Git internal
+*.orig
+
+# Temporary files
+*.tmp
+*.swp
+
+# Documentation files (may contain secrets)
+*DEPLOYMENT*.md
+*RENDER*.md
+*SETUP*.md
+*GUIDE*.md
+*CHECKLIST*.md
+*LOGS*.md
+*REFERENCE*.md
+*EXAMPLE*.md
+*TROUBLESHOOTING*.md

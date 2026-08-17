@@ -1,0 +1,155 @@
+# ==========================================================
+# PROJECT GITIGNORE
+# ==========================================================
+
+# ===================== IGNORE OLD BACKEND =================
+# Completely ignore the old backend directories
+backend_app/
+previous_backend/
+
+# ===================== FLUTTER/DART =======================
+
+# Dart tool & build
+frontend_app/.dart_tool/
+frontend_app/build/
+frontend_app/.packages
+frontend_app/.flutter-plugins
+frontend_app/.flutter-plugins-dependencies
+frontend_app/.metadata
+
+# Flutter Web
+frontend_app/web/build/
+
+# Android
+frontend_app/android/.gradle/
+frontend_app/android/app/build/
+frontend_app/android/local.properties
+frontend_app/android/captures/
+frontend_app/android/.cxx/
+frontend_app/android/gradle-wrapper.jar
+frontend_app/android/key.properties
+
+# iOS
+frontend_app/ios/Pods/
+frontend_app/ios/.symlinks/
+frontend_app/ios/Flutter/Flutter.framework
+frontend_app/ios/Flutter/Flutter.podspec
+frontend_app/ios/Flutter/Generated.xcconfig
+frontend_app/ios/Flutter/app.flx
+frontend_app/ios/Flutter/app.zip
+frontend_app/ios/Flutter/flutter_assets/
+frontend_app/ios/Flutter/flutter_export_environment.sh
+frontend_app/ios/ServiceDefinitions.json
+frontend_app/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+frontend_app/macos/Flutter/ephemeral/
+frontend_app/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Windows
+frontend_app/windows/flutter/ephemeral/
+
+# Linux
+frontend_app/linux/flutter/ephemeral/
+
+# Generated files
+frontend_app/*.g.dart
+frontend_app/*.freezed.dart
+frontend_app/*.mocks.dart
+
+# Coverage
+frontend_app/coverage/
+
+# Logs
+*.log
+
+
+# ===================== ENVIRONMENT & SECRETS ==============
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# API keys and secrets
+*secret*
+*SECRET*
+*.key
+*.pem
+*.p12
+*.keystore
+
+
+# ===================== IDE & EDITORS ======================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ, Android Studio)
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Xcode
+*.xcworkspace
+!default.xcworkspace
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+
+# ===================== OPERATING SYSTEMS ==================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+
+# ===================== GENERAL ============================
+
+# Git
+*.orig
+*.rej
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Node modules (if any tooling uses it)
+node_modules/
+
+# Documentation with sensitive info (optional)
+*DEPLOYMENT*.md
+*CREDENTIALS*.md
