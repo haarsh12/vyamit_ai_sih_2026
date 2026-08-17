@@ -3,8 +3,7 @@
 # ==========================================================
 
 # ===================== IGNORE OLD BACKEND =================
-# Completely ignore the old backend directories
-backend_app/
+# Completely ignore only the previous_backend directory
 previous_backend/
 
 # ===================== FLUTTER/DART =======================
