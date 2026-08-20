@@ -55,7 +55,12 @@ class UserRepository:
         now = datetime.now(UTC)
         return await self.session.scalar(
             select(OTP)
-            .where(OTP.phone_number == phone_number, OTP.is_used.is_(False), OTP.expires_at > now)
+            .where(
+                OTP.phone_number == phone_number,
+                OTP.is_used.is_(False),
+                OTP.expires_at > now,
+                (OTP.locked_until.is_(None) | (OTP.locked_until <= now)),
+            )
             .order_by(OTP.id.desc())
             .with_for_update()
         )

@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     fast2sms_api_key: SecretStr | None = None
     otp_demo_mode: bool = False
     log_otp_codes: bool = False
+    enable_enhanced_noise_cancellation: bool = False
 
     @field_validator("app_env")
     @classmethod

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import '../core/config.dart';
 import '../models/dashboard.dart';
 
@@ -8,7 +9,6 @@ class AnalyticsService {
 
   Future<DashboardData?> getDashboard(String token, {int days = 30}) async {
     try {
-      print('📊 Fetching dashboard from: $baseUrl/analytics/dashboard?days=$days');
       final response = await http.get(
         Uri.parse('$baseUrl/analytics/dashboard?days=$days'),
         headers: {
@@ -16,9 +16,6 @@ class AnalyticsService {
           'Content-Type': 'application/json',
         },
       );
-
-      print('📊 Dashboard response status: ${response.statusCode}');
-      print('📊 Dashboard response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -28,14 +25,12 @@ class AnalyticsService {
       }
       return null;
     } catch (e) {
-      print('❌ Error fetching dashboard: $e');
       return null;
     }
   }
 
   Future<List<BillHistory>> getBills(String token, {int limit = 50, int offset = 0}) async {
     try {
-      print('📋 Fetching bills from: $baseUrl/analytics/bills?limit=$limit&offset=$offset');
       final response = await http.get(
         Uri.parse('$baseUrl/analytics/bills?limit=$limit&offset=$offset'),
         headers: {
@@ -43,9 +38,6 @@ class AnalyticsService {
           'Content-Type': 'application/json',
         },
       );
-
-      print('📋 Bills response status: ${response.statusCode}');
-      print('📋 Bills response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -57,7 +49,6 @@ class AnalyticsService {
       }
       return [];
     } catch (e) {
-      print('❌ Error fetching bills: $e');
       return [];
     }
   }
@@ -71,15 +62,12 @@ class AnalyticsService {
     String paymentMethod = 'cash',
   }) async {
     try {
-      print('💾 Saving bill to database...');
-      print('💾 Total: $totalAmount, Items: ${items.length}');
-      print('💾 URL: $baseUrl/analytics/bills');
-      
       final response = await http.post(
         Uri.parse('$baseUrl/analytics/bills'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'Idempotency-Key': const Uuid().v4(),
         },
         body: json.encode({
           'total_amount': totalAmount,
@@ -90,18 +78,12 @@ class AnalyticsService {
         }),
       );
 
-      print('💾 Save bill response status: ${response.statusCode}');
-      print('💾 Save bill response body: ${response.body}');
-
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        final success = data['success'] == true;
-        print('💾 Bill saved: $success');
-        return success;
+        return data['success'] == true;
       }
       return false;
     } catch (e) {
-      print('❌ Error saving bill: $e');
       return false;
     }
   }

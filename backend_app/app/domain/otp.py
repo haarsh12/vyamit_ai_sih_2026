@@ -21,6 +21,7 @@ _hasher = PasswordHasher()
 
 class OTPService:
     expiry_minutes = 5
+    max_verification_attempts = 5
 
     @staticmethod
     def generate(settings: Settings) -> str:
@@ -57,7 +58,13 @@ class OTPService:
             otp.is_used = True
             await session.commit()
         else:
-            await session.rollback()
+            # Persist failure state while the row remains locked.  Rolling the
+            # transaction back here would make unlimited online guessing
+            # possible against the same valid OTP.
+            otp.failed_attempts += 1
+            if otp.failed_attempts >= self.max_verification_attempts:
+                otp.is_used = True
+            await session.commit()
         return valid
 
 

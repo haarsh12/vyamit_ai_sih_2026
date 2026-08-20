@@ -18,6 +18,7 @@ from app.schemas.auth import OTPRequest, UpdateProfileRequest, VerifyOTPRequest
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 _otp_limiter = SlidingWindowRateLimiter(max_requests=3, window_seconds=300)
+_otp_verification_limiter = SlidingWindowRateLimiter(max_requests=8, window_seconds=300)
 
 
 def _profile_payload(user: User) -> dict[str, object]:
@@ -57,6 +58,7 @@ async def verify_otp(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
+    _otp_verification_limiter.check("otp-verify", payload.phone_number)
     if not await otp_service.verify(session, phone_number=payload.phone_number, code=payload.otp_code):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OTP")
 

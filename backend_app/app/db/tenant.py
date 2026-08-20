@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass(frozen=True, slots=True)
 class TenantContext:
     owner_id: int
     shop_category: str
-    session_id: str | None = None
+    session_id: UUID | None = None
     room_name: str | None = None
 
 

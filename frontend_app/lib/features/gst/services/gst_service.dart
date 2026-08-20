@@ -1,5 +1,6 @@
 import '../models/gst_configuration.dart';
 import '../../../services/api_client.dart';
+import 'package:uuid/uuid.dart';
 
 class GstService {
   final ApiClient _api = ApiClient();
@@ -22,7 +23,11 @@ class GstService {
   }
 
   Future<Map<String, dynamic>> finalizeInvoice(Map<String, dynamic> draft) async {
-    final response = await _api.post('/gst/invoices', draft);
+    final response = await _api.post(
+      '/gst/invoices',
+      draft,
+      extraHeaders: {'Idempotency-Key': const Uuid().v4()},
+    );
     return Map<String, dynamic>.from(response as Map);
   }
 
@@ -30,4 +35,3 @@ class GstService {
     await _api.post('/gst/invoices/$invoiceId/printed', const {});
   }
 }
-

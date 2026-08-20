@@ -2,10 +2,15 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, health, items
+from app.api.v1 import analytics, auth, doctor_prescriptions, gst, health, items, voice, voice_inventory
 
 
 router = APIRouter()
 router.include_router(health.router)
 router.include_router(auth.router)
 router.include_router(items.router)
+router.include_router(gst.router)
+router.include_router(analytics.router)
+router.include_router(voice.router)
+router.include_router(voice_inventory.router)
+router.include_router(doctor_prescriptions.router)

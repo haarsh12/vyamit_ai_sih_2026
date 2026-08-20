@@ -52,6 +52,8 @@ class OTP(TimestampMixin, Base):
     code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Item(TimestampMixin, Base):
@@ -135,6 +137,7 @@ class Customer(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    shop_category: Mapped[str] = mapped_column(String(60), nullable=False, default="General")
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str | None] = mapped_column(String(120))
     total_bills: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -146,7 +149,7 @@ class Customer(TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("owner_id", "phone_number"),
-        Index("ix_customers_owner_name", "owner_id", "name"),
+        Index("ix_customers_owner_category_name", "owner_id", "shop_category", "name"),
         Index(
             "ix_customers_embedding_hnsw",
             "embedding",

@@ -1,9 +1,5 @@
-import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-
-import '../../../core/config.dart';
 import '../../../services/api_client.dart';
 import '../models/prescription_draft.dart';
 
@@ -16,39 +12,11 @@ class DoctorPrescriptionService {
     return _draftFromResponse(Map<String, dynamic>.from(response));
   }
 
-  /// Uses the doctor-only WebSocket first. The separate HTTP endpoint remains
-  /// a reliable fallback for restrictive networks and older Android devices.
+  /// The legacy doctor WebSocket is intentionally retired.  This temporary
+  /// HTTP bridge only formats an editable draft; audio itself moves to the
+  /// authenticated LiveKit flow in the focused voice migration.
   Future<PrescriptionDraft> processVoiceStream(String text) async {
-    WebSocketChannel? channel;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('user_token');
-      if (token == null || token.isEmpty) return processVoice(text);
-      final uri = Uri.parse(
-        '${ApiConfig.wsUrl}/doctor-prescriptions/voice/ws/stream?token=${Uri.encodeQueryComponent(token)}',
-      );
-      channel = WebSocketChannel.connect(uri);
-      await channel.ready.timeout(const Duration(seconds: 8));
-      channel.sink.add(jsonEncode({'action': 'process', 'text': text}));
-      await for (final event
-          in channel.stream.timeout(const Duration(seconds: 30))) {
-        final decoded = jsonDecode(event.toString());
-        if (decoded is! Map) continue;
-        final message = Map<String, dynamic>.from(decoded);
-        if (message['type'] == 'complete' && message['response'] is Map) {
-          return _draftFromResponse(
-              Map<String, dynamic>.from(message['response'] as Map));
-        }
-        if (message['type'] == 'error') {
-          throw Exception(message['message'] ?? 'Voice processing failed');
-        }
-      }
-      throw Exception('Voice stream closed before a draft was returned');
-    } catch (_) {
-      return processVoice(text);
-    } finally {
-      await channel?.sink.close();
-    }
+    return processVoice(text);
   }
 
   PrescriptionDraft _draftFromResponse(Map<String, dynamic> response) {
@@ -76,6 +44,7 @@ class DoctorPrescriptionService {
         signatureStrokes: signatureStrokes,
         savePatient: savePatient,
       ),
+      extraHeaders: {'Idempotency-Key': const Uuid().v4()},
     );
   }
 

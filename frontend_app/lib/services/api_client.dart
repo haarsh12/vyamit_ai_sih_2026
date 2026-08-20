@@ -7,7 +7,11 @@ import '../core/config.dart';
 class ApiClient {
   static String get baseUrl => ApiConfig.baseUrl;
 
-  Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
+  Future<dynamic> post(
+    String endpoint,
+    Map<String, dynamic> data, {
+    Map<String, String> extraHeaders = const {},
+  }) async {
     final url = Uri.parse('$baseUrl$endpoint');
 
     // Get Token from Shared Preferences (NOT Secure Storage)
@@ -20,6 +24,7 @@ class ApiClient {
         headers: {
           "Content-Type": "application/json",
           if (token != null) "Authorization": "Bearer $token",
+          ...extraHeaders,
         },
         body: jsonEncode(data),
       );
