@@ -284,6 +284,7 @@ class WorkflowDraft(TimestampMixin, Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    shop_category: Mapped[str] = mapped_column(String(60), nullable=False, default="General")
     voice_session_id: Mapped[UUID | None] = mapped_column(ForeignKey("voice_sessions.id", ondelete="SET NULL"))
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
@@ -291,7 +292,7 @@ class WorkflowDraft(TimestampMixin, Base):
     confirmation_status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
-    __table_args__ = (Index("ix_workflow_drafts_owner_kind", "owner_id", "kind"),)
+    __table_args__ = (Index("ix_workflow_drafts_owner_category_kind", "owner_id", "shop_category", "kind"),)
 
 
 class EmbeddingJob(TimestampMixin, Base):

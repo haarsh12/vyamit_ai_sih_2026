@@ -14,7 +14,7 @@ import '../providers/auth_provider.dart';
 import '../providers/bill_provider.dart';
 import '../services/printer_service.dart'; // Import the new service
 import '../services/analytics_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_token_store.dart';
 import '../core/shop_categories.dart';
 import '../features/category_experience/category_frequent_items.dart';
 import '../features/category_experience/category_page_factory.dart';
@@ -269,10 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint("🏠 Items in billData: ${billData['items']}");
     debugPrint("🏠 Items count: ${(billData['items'] as List?)?.length ?? 0}");
 
-    // Get auth token for API calls
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs
-        .getString('user_token'); // Changed from 'auth_token' to 'user_token'
+    final serverSaved = billData['server_saved'] == true;
+    // Get auth token for API calls.
+    final token = await AuthTokenStore().read();
 
     // 1. Check Printer Connection FIRST
     if (_isPrinterConnected) {
@@ -299,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (result == "Success") {
         // Save bill to database
-        if (token != null) {
+        if (!serverSaved && token != null) {
           debugPrint("💾 Preparing to save bill to database...");
           final items = billData['items'] as List;
           debugPrint("💾 Bill has ${items.length} items");
@@ -329,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
 
           debugPrint("💾 Bill saved to database: $saved");
-        } else {
+        } else if (!serverSaved) {
           debugPrint("❌ No auth token - cannot save bill");
         }
 
@@ -357,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _printPdf(billData);
 
       // Save bill to database even for PDF
-      if (token != null) {
+      if (!serverSaved && token != null) {
         debugPrint("💾 Preparing to save bill to database (PDF mode)...");
         final items = billData['items'] as List;
         final billItems = items.map((item) {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/shop_details.dart';
 import '../models/dashboard.dart';
 import '../core/theme.dart';
 import '../services/analytics_service.dart';
+import '../services/auth_token_store.dart';
 import '../widgets/dashboard_summary_card.dart';
 import '../widgets/top_selling_items_widget.dart';
 import '../widgets/category_pie_chart.dart';
@@ -38,17 +38,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('user_token'); // Changed from 'auth_token' to 'user_token'
-
-    print('🔑 Auth token: ${_token != null ? "Found" : "Not found"}');
+    _token = await AuthTokenStore().read();
 
     if (_token != null) {
       final dashboard = await _analyticsService.getDashboard(_token!);
       final bills = await _analyticsService.getBills(_token!);
-      
-      print('📊 Dashboard loaded: ${dashboard != null}');
-      print('📋 Bills loaded: ${bills.length} bills');
       
       setState(() {
         _dashboardData = dashboard;
@@ -56,7 +50,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _isLoading = false;
       });
     } else {
-      print('❌ No auth token found');
       setState(() => _isLoading = false);
     }
   }

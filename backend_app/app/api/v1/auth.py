@@ -12,6 +12,7 @@ from app.core.security import create_access_token, get_current_user_id
 from app.db.models import User
 from app.db.session import get_db_session
 from app.domain.otp import otp_service
+from app.integrations.sms import SmsDeliveryError, sms_delivery
 from app.repositories.users import UserRepository
 from app.schemas.auth import OTPRequest, UpdateProfileRequest, VerifyOTPRequest
 
@@ -47,8 +48,19 @@ async def send_otp(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No account exists for this phone number")
     if not payload.is_login and user is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An account already exists for this phone number")
-    await otp_service.issue(session, phone_number=payload.phone_number, settings=settings)
-    # SMS transport is introduced as an injectable delivery adapter; no OTP is returned to clients.
+    code = await otp_service.issue(session, phone_number=payload.phone_number, settings=settings)
+    try:
+        await sms_delivery.send_otp(phone_number=payload.phone_number, code=code, settings=settings)
+    except (RuntimeError, SmsDeliveryError) as error:
+        # The code was committed before contacting an external system. Mark it
+        # unusable if delivery was not accepted, rather than leaving a valid
+        # code that the user never received.
+        await UserRepository(session).invalidate_open_otps(payload.phone_number)
+        await session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OTP delivery is temporarily unavailable. Please try again.",
+        ) from error
     return {"message": "OTP sent successfully"}
 
 

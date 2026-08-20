@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     mistral_model: str = ""
 
     fast2sms_api_key: SecretStr | None = None
+    fast2sms_base_url: str = "https://www.fast2sms.com/dev/bulkV2"
     otp_demo_mode: bool = False
     log_otp_codes: bool = False
     enable_enhanced_noise_cancellation: bool = False
@@ -115,6 +116,23 @@ class Settings(BaseSettings):
         ]
         if missing:
             raise RuntimeError(f"Missing LiveKit configuration: {', '.join(missing)}")
+
+    def require_sms_delivery(self) -> None:
+        if self.otp_demo_mode:
+            return
+        if not _has_value(self.fast2sms_api_key):
+            raise RuntimeError("FAST2SMS_API_KEY must be configured unless OTP_DEMO_MODE is enabled.")
+
+    def require_api_runtime_security(self) -> None:
+        """Fail fast on production-only insecure configuration."""
+
+        if not self.is_production:
+            return
+        self.require_jwt_secret()
+        if self.otp_demo_mode or self.log_otp_codes:
+            raise RuntimeError("OTP demo mode and OTP code logging are forbidden in production.")
+        if not self.allowed_origins or any(not origin.startswith("https://") for origin in self.allowed_origins):
+            raise RuntimeError("CORS_ORIGINS must contain explicit HTTPS origins in production.")
 
     def require_agent_providers(self) -> None:
         self.require_livekit()

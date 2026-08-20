@@ -2,6 +2,18 @@
 
 **Status:** active. This is the single living planning artifact for the new backend. Update its checkboxes and decisions as implementation progresses.
 
+## Current implementation snapshot (2026-08-20)
+
+The new `backend_app/` contains a migration-owned async FastAPI foundation,
+tenant/category-scoped inventory, bills, GST and doctor records, hashed/rate-
+limited OTPs, an explicit Fast2SMS delivery adapter, transactional embedding
+outbox, and a LiveKit agent/token flow that validates both room and participant
+identity. The Flutter project now has a secure token store and a dedicated
+`LiveKitVoiceService` transport layer. The legacy visual screens are still
+present while their bill-drafting interaction is migrated; their old device
+STT/TTS/WebSocket packages must not be removed until that targeted UI phase has
+passed device tests.
+
 ## 1. Audit findings
 
 The repository contains three sources of truth:
@@ -122,7 +134,9 @@ backend_app/
 ### New tables
 
 - `voice_sessions`: server-created room/participant binding, owner/category snapshot, lifecycle timestamps, selected provider, no raw audio.
-- `voice_turns`: optional/retention-limited redacted transcript and tool outcome metadata; no microphone audio.
+- `voice_turns`: optional future, retention-limited redacted transcript and tool
+  outcome metadata; no microphone audio. It is intentionally not created until
+  the consent and retention policy is approved.
 - `workflow_drafts`: optimistic-versioned bill/GST/prescription draft state with expiry and explicit confirmation status.
 - `embedding_jobs`: transactional outbox for create/update/delete/reindex tasks, retries, failure reason category, and content hash.
 - `agent_memory`: opt-in summarized durable facts only; never use raw transcript as unbounded prompt history.
@@ -132,7 +146,9 @@ backend_app/
 
 - Enable the `vector` extension through the first Alembic migration.
 - Lock `VERTEX_EMBEDDING_MODEL` and its tested dimension before creating vector columns. The reference uses `text-embedding-004` at 768 dimensions; the new migration will reject a model/dimension mismatch rather than silently mixing vectors.
-- Embed item aliases/category/unit and customer search material on writes or backfill jobs, not every conversation.
+- Embed item aliases/category/unit on writes or backfill jobs, not every
+  conversation. Customer lookup remains deterministic by default; do not embed
+  customer PII without a separately approved privacy/consent model.
 - Use normalized exact/alias/phone lookup first. `search_inventory` generates a query embedding only if semantic search is needed.
 - Use cosine distance and an HNSW cosine index after measuring corpus size/recall; keep owner/category filters inside SQL/RPC. Supabase recommends HNSW for read-heavy low-latency workloads.
 
@@ -179,13 +195,14 @@ Gemini is called first. A Mistral call is made only after a classified transient
 ## 8. Implementation phases and acceptance criteria
 
 - [x] Audit all three codebases and official provider documentation.
-- [ ] Create clean backend package, typed settings, structured logging, `/health/live`, `/health/ready`, and Alembic foundation.
-- [ ] Port compatibility-safe HTTP domain endpoints with contract tests.
+- [x] Create clean backend package, typed settings, structured logging, `/health/live`, `/health/ready`, and Alembic foundation.
+- [x] Port compatibility-safe HTTP domain endpoints and deterministic unit/contract tests.
 - [ ] Create Supabase migrations, RLS/role strategy, pgvector functions/indexes, and a no-secret local environment template.
-- [ ] Implement asynchronous repositories, embedding outbox worker, hybrid retrieval, and reindex command.
-- [ ] Implement authenticated LiveKit token issuance, room/session binding, agent runner, provider validation, agent state events, and interruption tests.
-- [ ] Implement tools in read-only → draft → confirmed-write order.
-- [ ] Add targeted Flutter LiveKit client controller; retain the current visual screens, billing provider, GST preview, printer flow, and category navigation.
+- [x] Implement asynchronous repositories, embedding outbox worker, and hybrid retrieval. A controlled reindex command remains to be added.
+- [x] Implement authenticated LiveKit token issuance, room/participant binding, agent runner, provider validation, and agent state events. Provider/device and interruption tests still require credentials.
+- [x] Implement read-only agent tools.
+- [ ] Implement draft and confirmed-write agent tools, including explicit UI confirmation and optimistic draft versions.
+- [ ] Integrate the targeted Flutter LiveKit client controller into each existing voice screen; retain the existing visuals, billing provider, GST preview, printer flow, and category navigation.
 - [ ] Remove legacy voice WebSocket and device STT/TTS dependencies only after the matching LiveKit paths pass device tests.
 - [ ] Execute unit, API, database, agent/tool, provider smoke, Flutter, and end-to-end test matrices; record real latency measurements.
 

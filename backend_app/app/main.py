@@ -24,6 +24,7 @@ settings = get_settings()
 async def lifespan(_: FastAPI):
     """Avoid side-effectful schema creation at startup; migrations are explicit."""
 
+    settings.require_api_runtime_security()
     await database_is_ready(settings)
     yield
 

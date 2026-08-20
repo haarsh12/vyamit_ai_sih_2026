@@ -4,10 +4,10 @@ import '../../models/item.dart';
 import '../../models/shop_details.dart';
 import '../../screens/frequent_billing_screen.dart';
 import '../../screens/inventory_screen.dart';
-import '../../screens/voice_assistant_screen.dart';
+import '../../screens/livekit_voice_assistant_screen.dart';
 import '../doctor_prescription/doctor_patient_list_screen.dart';
 import '../doctor_prescription/doctor_prescription_history_screen.dart';
-import '../doctor_prescription/doctor_voice_screen.dart';
+import '../doctor_prescription/livekit_doctor_voice_screen.dart';
 import 'category_experience.dart';
 
 class CategoryPageBundle {
@@ -83,7 +83,7 @@ class CategoryPageFactory {
     switch (definition.type) {
       case CategoryPageType.voice:
         if (experience.category == 'Doctor Prescription') {
-          return DoctorVoiceScreen(
+          return LiveKitDoctorVoiceScreen(
             key: const ValueKey('doctor-prescription-voice'),
             shopDetails: shopDetails,
             isPrinterConnected: isPrinterConnected,
@@ -91,7 +91,7 @@ class CategoryPageFactory {
           );
         }
         // Retail categories keep the shared inventory-aware billing surface.
-        return VoiceAssistantScreen(
+        return LiveKitVoiceAssistantScreen(
           key: ValueKey('voice-${experience.category}'),
           shopDetails: shopDetails,
           onBillFinalized: onBillFinalized,

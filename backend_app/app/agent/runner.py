@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from livekit.agents import AgentServer, AgentSession, JobContext, TurnHandlingOptions, cli, inference, room_io
 from livekit.plugins import ai_coustics
 
-from app.agent.instructions import VOICE_ASSISTANT_INSTRUCTIONS
+from app.agent.instructions import DOCTOR_VOICE_INSTRUCTIONS, VOICE_ASSISTANT_INSTRUCTIONS
 from app.agent.providers import create_llm, create_stt, create_tts
 from app.agent.tools import VyamitAssistant
 from app.config.settings import get_settings
@@ -54,20 +54,31 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     if factory is None:
         raise RuntimeError("DATABASE_URL is required by the Vyamit agent.")
     async with factory() as db_session:
-        # An agent joins only a room/identity pair issued by the authenticated
-        # API.  Room names are not an authorization boundary by themselves.
-        tenant = None
-        for participant_identity in ctx.room.remote_participants:
-            tenant = await VoiceSessionRepository(db_session).resolve_tenant(
-                ctx.room.name, participant_identity
-            )
-            if tenant is not None:
-                break
-        await db_session.commit()
-    if tenant is None:
+        expected_identity = await VoiceSessionRepository(db_session).expected_participant_identity(ctx.room.name)
+    if expected_identity is None:
         logger.warning("agent_rejected_unbound_room", extra={"room": ctx.room.name})
         # Python JobContext.shutdown is non-awaitable; no AgentSession has
         # started yet, so it is the correct lifecycle primitive here.
+        ctx.shutdown(reason="A valid Vyamit voice session is required.")
+        return
+    try:
+        # A room name alone is not enough.  The agent waits for exactly the
+        # identity minted alongside the token; a different participant cannot
+        # borrow a live room to access this tenant's tools.
+        participant = await asyncio.wait_for(
+            ctx.wait_for_participant(identity=expected_identity), timeout=15.0
+        )
+    except TimeoutError:
+        logger.warning("agent_rejected_missing_bound_participant", extra={"room": ctx.room.name})
+        ctx.shutdown(reason="The authenticated participant did not join in time.")
+        return
+    async with factory() as db_session:
+        tenant = await VoiceSessionRepository(db_session).resolve_tenant(
+            ctx.room.name, participant.identity
+        )
+        await db_session.commit()
+    if tenant is None:
+        logger.warning("agent_rejected_invalid_participant", extra={"room": ctx.room.name})
         ctx.shutdown(reason="A valid Vyamit voice session is required.")
         return
     ctx.log_context_fields = {"room": ctx.room.name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id}
@@ -100,14 +111,37 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     def overlapping_speech(_: object) -> None:
         asyncio.create_task(_publish_ui_event(ctx, "interruption"))
 
-    try:
-        await session.start(agent=VyamitAssistant(instructions=VOICE_ASSISTANT_INSTRUCTIONS, tenant=tenant), room=ctx.room, room_options=room_options)
-        await _publish_ui_event(ctx, "connected", session_id=str(tenant.session_id))
-        logger.info("agent_session_started", extra={"room": ctx.room.name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id})
-    finally:
+    async def close_database_session() -> None:
+        """Run after the LiveKit job/session has actually ended, not after start()."""
+
         async with factory() as db_session:
             await VoiceSessionRepository(db_session).close(tenant.session_id)
             await db_session.commit()
+
+    # AgentSession.start() configures long-lived I/O then returns.  The job
+    # shutdown callback is therefore the lifecycle boundary for DB cleanup.
+    ctx.add_shutdown_callback(close_database_session)
+    await session.start(
+        agent=VyamitAssistant(
+            instructions=(
+                DOCTOR_VOICE_INSTRUCTIONS
+                if tenant.shop_category == "Doctor Prescription"
+                else VOICE_ASSISTANT_INSTRUCTIONS
+            ),
+            tenant=tenant,
+            on_bill_draft_created=lambda draft: _publish_ui_event(ctx, "bill_draft", **draft),
+            on_prescription_draft_created=lambda draft: _publish_ui_event(
+                ctx, "prescription_draft", **draft
+            ),
+        ),
+        room=ctx.room,
+        room_options=room_options,
+    )
+    await _publish_ui_event(ctx, "connected", session_id=str(tenant.session_id))
+    logger.info(
+        "agent_session_started",
+        extra={"room": ctx.room.name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id},
+    )
 
 
 if __name__ == "__main__":

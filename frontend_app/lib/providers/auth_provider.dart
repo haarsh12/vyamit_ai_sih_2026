@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
+import '../services/auth_token_store.dart';
 import '../models/shop_details.dart';
 import '../core/shop_categories.dart';
 
@@ -9,16 +10,16 @@ class AuthProvider with ChangeNotifier {
   String? _token;
   ShopDetails? _shopDetails;
   final ApiClient _apiClient = ApiClient();
+  final AuthTokenStore _tokenStore = AuthTokenStore();
 
   bool get isLoggedIn => _token != null;
   String? get token => _token;
   ShopDetails? get shopDetails => _shopDetails;
 
   Future<bool> tryAutoLogin() async {
+    _token = await _tokenStore.read();
+    if (_token == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('user_token')) return false;
-
-    _token = prefs.getString('user_token');
 
     // Load saved shop details if available
     if (prefs.containsKey('user_data')) {
@@ -35,7 +36,6 @@ class AuthProvider with ChangeNotifier {
         qualifications: data['qualifications'] ?? '',
       );
 
-      print("DEBUG: Auto-login loaded phone2: ${_shopDetails?.phone2}");
     }
 
     notifyListeners();
@@ -61,9 +61,6 @@ class AuthProvider with ChangeNotifier {
         if (shopCategory != null) "shop_category": shopCategory,
       });
 
-      // DEBUG LOG: Check this in your Flutter Terminal!
-      print("SERVER RESPONSE: $response");
-
       // 2. Extract Token
       _token = response['access_token'];
 
@@ -80,12 +77,9 @@ class AuthProvider with ChangeNotifier {
           response['medical_registration_number'] ?? '';
       final String qualifications = response['qualifications'] ?? '';
 
-      print("DEBUG: Received phone2 from backend: $finalPhone2");
-      print("DEBUG: shop_category: $finalCategory");
-
       // 4. Save to Storage
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_token', _token!);
+      await _tokenStore.write(_token!);
 
       final userData = {
         'user_id': userId,
@@ -140,9 +134,6 @@ class AuthProvider with ChangeNotifier {
     String? qualifications,
   }) async {
     try {
-      print(
-          "Updating profile: Shop=$shopName, Owner=$ownerName, Address=$address, Phone2=$phone2, Category=$shopCategory");
-
       // 1. Send Update Request to Backend
       final response = await _apiClient.put('/auth/update-profile', {
         "shop_name": shopName,
@@ -154,8 +145,6 @@ class AuthProvider with ChangeNotifier {
           "medical_registration_number": medicalRegistrationNumber,
         if (qualifications != null) "qualifications": qualifications,
       });
-
-      print("UPDATE RESPONSE: $response");
 
       // 2. Extract Updated Data
       String updatedShopName = response['shop_name'] ?? shopName;
@@ -178,8 +167,6 @@ class AuthProvider with ChangeNotifier {
 
       // Keep phone1 unchanged (it's read-only)
       String currentPhone1 = _shopDetails?.phone1 ?? "";
-
-      print("DEBUG: Updated phone2 from backend: $updatedPhone2");
 
       // 3. Save to Local Storage
       final prefs = await SharedPreferences.getInstance();
@@ -228,6 +215,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _token = null;
     _shopDetails = null;
+    await _tokenStore.delete();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     notifyListeners();

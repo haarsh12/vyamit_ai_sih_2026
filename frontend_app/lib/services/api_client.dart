@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config.dart';
+import 'auth_token_store.dart';
 
 class ApiClient {
   static String get baseUrl => ApiConfig.baseUrl;
+  final AuthTokenStore _tokenStore = AuthTokenStore();
 
   Future<dynamic> post(
     String endpoint,
@@ -14,9 +15,7 @@ class ApiClient {
   }) async {
     final url = Uri.parse('$baseUrl$endpoint');
 
-    // Get Token from Shared Preferences (NOT Secure Storage)
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+    final token = await _tokenStore.read();
 
     try {
       final response = await http.post(
@@ -37,8 +36,7 @@ class ApiClient {
 
   Future<dynamic> get(String endpoint) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+    final token = await _tokenStore.read();
 
     try {
       final response = await http.get(
@@ -58,8 +56,7 @@ class ApiClient {
   // PUT method for profile and item updates
   Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+    final token = await _tokenStore.read();
 
     try {
       final response = await http.put(
@@ -80,8 +77,7 @@ class ApiClient {
   // NEW: DELETE method for removing items
   Future<dynamic> delete(String endpoint) async {
     final url = Uri.parse('$baseUrl$endpoint');
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+    final token = await _tokenStore.read();
 
     try {
       final response = await http.delete(

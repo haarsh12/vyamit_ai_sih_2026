@@ -30,6 +30,15 @@ class VoiceSessionRepository:
         await self.session.flush()
         return record
 
+    async def expected_participant_identity(self, room_name: str) -> str | None:
+        """Return only the short-lived identity bound to a still-valid room."""
+
+        return await self.session.scalar(select(VoiceSession.participant_identity).where(
+            VoiceSession.room_name == room_name,
+            VoiceSession.expires_at > datetime.now(UTC),
+            VoiceSession.status.in_(("issued", "active")),
+        ))
+
     async def resolve_tenant(self, room_name: str, participant_identity: str) -> TenantContext | None:
         """Atomically validate both token-bound room and participant identity."""
 
