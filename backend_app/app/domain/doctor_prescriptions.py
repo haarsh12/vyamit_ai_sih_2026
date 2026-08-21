@@ -28,9 +28,15 @@ def _extract_draft(transcription: str) -> dict[str, Any]:
         patient["name"] = re.sub(
             r"\s+\b(?:age|years?|yrs?|male|female|other|\d{1,3})\b.*$", "", name_match.group(1), flags=re.I
         ).strip(" ,.-:")[:120]
-    age_match = re.search(r"\b(?:age\s*)?(\d{1,3})\s*(?:years?|yrs?)\b", text, re.I)
-    if age_match and int(age_match.group(1)) <= 130:
-        patient["age"] = int(age_match.group(1))
+    age_match = re.search(
+        r"\b(?:age\s*(\d{1,3})\b|(\d{1,3})\s*(?:years?|yrs?)\b)",
+        text,
+        re.I,
+    )
+    if age_match:
+        age = int(age_match.group(1) or age_match.group(2))
+        if age <= 130:
+            patient["age"] = age
     gender_match = re.search(r"\b(male|female|other)\b", text, re.I)
     if gender_match:
         patient["gender"] = gender_match.group(1).title()
@@ -64,9 +70,17 @@ def _extract_draft(transcription: str) -> dict[str, Any]:
     introduced = re.search(r"\b(?:prescribe|prescribed|give|take|medicine(?:\s+name)?\s*(?:is)?|tablet|capsule)\s+(.+)$", text, re.I)
     if introduced:
         medication_source = introduced.group(1)
+    dose_match = re.search(
+        r"\b(\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|tablet(?:s)?|tab(?:s)?|capsule(?:s)?|cap(?:s)?))\b",
+        medication_source,
+        re.I,
+    )
     medicine_name = ""
     if medication_source:
-        medicine_match = re.match(r"\s*([A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z0-9-]+){0,2})", medication_source)
+        # A dose unambiguously ends the drug name. Keeping that boundary stops
+        # frequency/timing words becoming part of the editable medicine name.
+        medicine_source = medication_source[:dose_match.start()] if dose_match else medication_source
+        medicine_match = re.match(r"\s*([A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z0-9-]+){0,2})", medicine_source)
         medicine_name = medicine_match.group(1).strip(" ,.")[:120] if medicine_match else ""
     medications: list[dict[str, str]] = []
     if medicine_name and medicine_name.casefold() not in {"patient", "diagnosis", "medicine"}:

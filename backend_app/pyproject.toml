@@ -46,6 +46,9 @@ include = ["app*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: requires the configured Supabase project and is never run by default",
+]
 
 [tool.ruff]
 line-length = 100

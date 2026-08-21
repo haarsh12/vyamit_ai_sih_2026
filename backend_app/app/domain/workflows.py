@@ -92,6 +92,7 @@ class WorkflowService:
             tenant,
             BillCreate.model_validate(draft.state),
             idempotency_key=idempotency_key,
+            commit=False,
         )
         draft.confirmation_status = "confirmed"
         draft.version += 1

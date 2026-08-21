@@ -29,7 +29,10 @@ def get_engine() -> AsyncEngine | None:
         pool_size=5,
         max_overflow=10,
         pool_timeout=30,
-        connect_args={"command_timeout": 30},
+        connect_args={
+            "command_timeout": 30,
+            "statement_cache_size": 0,  # Required for Supabase pooler
+        },
     )
 
 

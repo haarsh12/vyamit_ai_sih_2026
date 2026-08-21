@@ -4,6 +4,7 @@ asyncpg<1,>=0.30
 fastapi<1,>=0.115
 google-cloud-aiplatform<2,>=1.85
 google-genai<3,>=1.0
+httpx<1,>=0.28
 livekit-agents<2,>=1.6
 livekit-api<2,>=1.2
 livekit-plugins-ai-coustics<1,>=0.3

@@ -43,6 +43,13 @@ class InventorySearchService:
     def __init__(self, embeddings: VertexEmbeddingService | None = None) -> None:
         self.embeddings = embeddings
 
+    async def list_catalog(self, session: AsyncSession, tenant: TenantContext) -> list[Item]:
+        """Return the active tenant catalog for a non-mutating draft proposal."""
+
+        return (await session.scalars(select(Item).where(
+            Item.owner_id == tenant.owner_id, Item.shop_category == tenant.shop_category
+        ))).all()
+
     async def search(
         self, session: AsyncSession, tenant: TenantContext, query: str, *, limit: int = 5
     ) -> list[InventoryMatch]:
@@ -50,9 +57,7 @@ class InventorySearchService:
         if not clean_query:
             return []
         safe_limit = min(max(limit, 1), 10)
-        items = (await session.scalars(select(Item).where(
-            Item.owner_id == tenant.owner_id, Item.shop_category == tenant.shop_category
-        ))).all()
+        items = await self.list_catalog(session, tenant)
         query_key, query_tokens = clean_query.casefold(), _tokens(clean_query)
         exact = [
             InventoryMatch(item, 1.0, "exact") for item in items

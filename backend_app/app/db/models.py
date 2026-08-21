@@ -143,19 +143,14 @@ class Customer(TimestampMixin, Base):
     total_bills: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_spent: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     last_purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
-    embedding_source_hash: Mapped[str | None] = mapped_column(String(64))
-    embedding_model: Mapped[str | None] = mapped_column(String(120))
-
     __table_args__ = (
-        UniqueConstraint("owner_id", "phone_number"),
-        Index("ix_customers_owner_category_name", "owner_id", "shop_category", "name"),
-        Index(
-            "ix_customers_embedding_hnsw",
-            "embedding",
-            postgresql_using="hnsw",
-            postgresql_ops={"embedding": "vector_cosine_ops"},
+        UniqueConstraint(
+            "owner_id",
+            "shop_category",
+            "phone_number",
+            name="uq_customers_owner_category_phone",
         ),
+        Index("ix_customers_owner_category_name", "owner_id", "shop_category", "name"),
     )
 
 

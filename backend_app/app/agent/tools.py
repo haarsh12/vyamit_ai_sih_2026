@@ -13,6 +13,7 @@ from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
 from app.domain.doctor_prescriptions import format_dictation
 from app.domain.gst import gst_billing_service
+from app.domain.voice_inventory import parse_inventory_dictation
 from app.domain.workflows import workflow_service
 from app.retrieval.inventory import inventory_search_service
 from app.schemas.analytics import BillCreate
@@ -28,11 +29,13 @@ class VyamitAssistant(Agent):
         tenant: TenantContext,
         on_bill_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
         on_prescription_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
+        on_inventory_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
     ) -> None:
         super().__init__(instructions=instructions)
         self.tenant = tenant
         self._on_bill_draft_created = on_bill_draft_created
         self._on_prescription_draft_created = on_prescription_draft_created
+        self._on_inventory_draft_created = on_inventory_draft_created
 
     @function_tool()
     async def get_shop_profile(self) -> dict[str, object]:
@@ -167,3 +170,30 @@ class VyamitAssistant(Agent):
         if self._on_prescription_draft_created is not None:
             await self._on_prescription_draft_created(result)
         return result
+
+    @function_tool()
+    async def parse_inventory_changes(self, text: str) -> dict[str, object]:
+        """Turn spoken inventory additions or price changes into an editable proposal.
+
+        This tool never adds or updates inventory. Use it when the user asks to
+        change catalog items, then ask them to review and save in the app.
+        """
+
+        if self.tenant.shop_category == "Doctor Prescription":
+            return {"created": False, "message": "Inventory is unavailable in doctor mode."}
+        if not text.strip() or len(text) > 2_000:
+            return {"created": False, "message": "Inventory dictation must be between 1 and 2000 characters."}
+        factory = get_session_factory()
+        if factory is None:
+            return {"created": False, "message": "Inventory is temporarily unavailable."}
+        async with factory() as session:
+            items = await inventory_search_service.list_catalog(session, self.tenant)
+        proposal = parse_inventory_dictation(
+            text,
+            existing_items=[{"id": item.master_id, "names": item.names, "price": item.price, "unit": item.unit} for item in items],
+            existing_categories=sorted({item.category for item in items if item.category}),
+        )
+        proposal["requires_user_confirmation"] = True
+        if self._on_inventory_draft_created is not None:
+            await self._on_inventory_draft_created(proposal)
+        return proposal

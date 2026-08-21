@@ -133,6 +133,9 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
             on_prescription_draft_created=lambda draft: _publish_ui_event(
                 ctx, "prescription_draft", **draft
             ),
+            on_inventory_draft_created=lambda draft: _publish_ui_event(
+                ctx, "inventory_draft", **draft
+            ),
         ),
         room=ctx.room,
         room_options=room_options,

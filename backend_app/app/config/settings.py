@@ -90,7 +90,11 @@ class Settings(BaseSettings):
         if value.startswith("postgres://"):
             value = "postgresql://" + value.removeprefix("postgres://")
         if value.startswith("postgresql://"):
-            return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+            # Supabase documents its connection string with psycopg/libpq's
+            # `sslmode` query option. asyncpg uses the equivalent `ssl` name.
+            return (
+                "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+            ).replace("sslmode=", "ssl=")
         return value
 
     def require_database(self) -> str:

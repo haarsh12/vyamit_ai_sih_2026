@@ -53,23 +53,41 @@ def parse_inventory_dictation(
     """Return an editable proposal in the exact response shape Flutter expects."""
 
     category = "Other"
-    category_match = re.search(r"\bcategory\s+([\w\s-]+?)(?=\s+\w+\s+\d|[,;]|$)", raw_text, re.IGNORECASE)
-    if category_match:
-        candidate = category_match.group(1).strip()
-        category = next(
-            (saved for saved in existing_categories if saved.casefold() == candidate.casefold()),
-            candidate.title()[:60] or "Other",
+    item_text = raw_text
+    category_prefix = re.match(r"\s*category\s+", raw_text, re.IGNORECASE)
+    if category_prefix:
+        remaining = raw_text[category_prefix.end():].strip()
+        # The user selects categories from the existing catalog. Prefer the
+        # longest matching saved category, so "grains wheat flour" recognises
+        # the category "Grains" rather than incorrectly absorbing "Wheat".
+        saved_category = next(
+            (
+                value
+                for value in sorted(existing_categories, key=len, reverse=True)
+                if remaining.casefold() == value.casefold()
+                or remaining.casefold().startswith(f"{value.casefold()} ")
+            ),
+            None,
         )
+        if saved_category:
+            category = saved_category
+            item_text = remaining[len(saved_category):].strip(" ,;:-")
+        else:
+            # Without a catalog category there is no unambiguous delimiter
+            # between a multi-word category and a multi-word item. Preserve a
+            # deterministic one-word category and leave the rest as the item.
+            candidate, _, item_text = remaining.partition(" ")
+            category = candidate.title()[:60] or "Other"
     parsed: list[dict[str, Any]] = []
-    for match in _ITEM_PATTERN.finditer(raw_text):
-        name = re.sub(r"\bcategory\b.*$", "", match.group("name"), flags=re.IGNORECASE).strip(" ,.-")
+    for match in _ITEM_PATTERN.finditer(item_text):
+        name = match.group("name").strip(" ,.-")
         if not name:
             continue
         item = {"name": name.title()[:100], "price": float(match.group("price")), "unit": _unit(match.group("unit")), "aliases": []}
         _existing_item(item, existing_items)
         parsed.append(item)
     if not parsed:
-        item = {"name": raw_text[:100], "price": 0.0, "unit": "piece", "aliases": []}
+        item = {"name": item_text.strip().title()[:100], "price": 0.0, "unit": "piece", "aliases": []}
         _existing_item(item, existing_items)
         parsed.append(item)
     return {"categories": [{"name": category, "items": parsed}], "raw_text": raw_text}

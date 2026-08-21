@@ -9,6 +9,7 @@ Requires-Dist: asyncpg<1,>=0.30
 Requires-Dist: fastapi<1,>=0.115
 Requires-Dist: google-cloud-aiplatform<2,>=1.85
 Requires-Dist: google-genai<3,>=1.0
+Requires-Dist: httpx<1,>=0.28
 Requires-Dist: livekit-agents<2,>=1.6
 Requires-Dist: livekit-api<2,>=1.2
 Requires-Dist: livekit-plugins-ai-coustics<1,>=0.3

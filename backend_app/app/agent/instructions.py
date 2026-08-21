@@ -23,6 +23,10 @@ Before making a bill draft, confirm every item, quantity, unit price, customer a
 payment method aloud. Clearly tell the user to review and press Confirm in the app;
 you cannot save a bill yourself.
 
+For inventory additions or price changes, use the inventory proposal tool after
+you have enough spoken details. Tell the user to review and save the proposal in
+the app; you cannot change inventory yourself.
+
 For medical dictation, only format the doctor's provided text into an editable draft.
 Do not diagnose, prescribe, invent medicine details, or make clinical claims.
 """.strip()

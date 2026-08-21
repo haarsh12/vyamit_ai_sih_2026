@@ -18,7 +18,13 @@ from app.schemas.analytics import BillCreate
 
 class AnalyticsService:
     async def create_bill(
-        self, session: AsyncSession, tenant: TenantContext, payload: BillCreate, *, idempotency_key: str
+        self,
+        session: AsyncSession,
+        tenant: TenantContext,
+        payload: BillCreate,
+        *,
+        idempotency_key: str,
+        commit: bool = True,
     ) -> dict[str, Any]:
         action = "bill.create"
         existing = await session.scalar(select(IdempotencyKey).where(
@@ -62,7 +68,12 @@ class AnalyticsService:
             created_at=now, owner_id=tenant.owner_id, session_id=tenant.session_id,
             action=action, outcome="success", metadata_={"bill_id": bill.id},
         ))
-        await session.commit()
+        # Workflow confirmation adds its draft state to this same transaction.
+        # Ordinary compatibility endpoints retain the existing commit behaviour.
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return result
 
     async def list_bills(self, session: AsyncSession, tenant: TenantContext, *, limit: int, offset: int) -> dict[str, Any]:

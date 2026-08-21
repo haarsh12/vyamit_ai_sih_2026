@@ -39,6 +39,10 @@ the same package and Supabase PostgreSQL database:
    alembic upgrade head
    ```
 
+   On an IPv4-only machine, use the exact Supavisor **session-pooler** URL
+   shown by Supabase Dashboard → Connect. The direct `db.<project>.supabase.co`
+   endpoint requires IPv6 unless the project has the IPv4 add-on.
+
 4. Start the API:
 
    ```powershell
@@ -57,6 +61,13 @@ the same package and Supabase PostgreSQL database:
 
    ```powershell
    python -m app.workers.embeddings
+   ```
+
+   To queue a controlled embedding backfill, run the server-only command and
+   then keep the worker running. `--force` is only for an approved model change:
+
+   ```powershell
+   python -m app.workers.reindex --owner-id 123
    ```
 
 ## Verification

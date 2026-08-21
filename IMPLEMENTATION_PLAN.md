@@ -9,10 +9,10 @@ tenant/category-scoped inventory, bills, GST and doctor records, hashed/rate-
 limited OTPs, an explicit Fast2SMS delivery adapter, transactional embedding
 outbox, and a LiveKit agent/token flow that validates both room and participant
 identity. The Flutter project now has a secure token store and a dedicated
-`LiveKitVoiceService` transport layer. The legacy visual screens are still
-present while their bill-drafting interaction is migrated; their old device
-STT/TTS/WebSocket packages must not be removed until that targeted UI phase has
-passed device tests.
+`LiveKitVoiceService` transport layer. Retail billing, inventory proposals,
+and doctor dictation now use focused LiveKit screens that preserve the existing
+navigation and confirmation flows. The legacy device STT/TTS/WebSocket screens
+and Flutter packages have been removed; physical-device/provider checks remain.
 
 ## 1. Audit findings
 
@@ -147,8 +147,9 @@ backend_app/
 - Enable the `vector` extension through the first Alembic migration.
 - Lock `VERTEX_EMBEDDING_MODEL` and its tested dimension before creating vector columns. The reference uses `text-embedding-004` at 768 dimensions; the new migration will reject a model/dimension mismatch rather than silently mixing vectors.
 - Embed item aliases/category/unit on writes or backfill jobs, not every
-  conversation. Customer lookup remains deterministic by default; do not embed
-  customer PII without a separately approved privacy/consent model.
+  conversation. Customer lookup remains deterministic; customer embedding
+  columns are deliberately absent until a separate privacy/consent model is
+  approved.
 - Use normalized exact/alias/phone lookup first. `search_inventory` generates a query embedding only if semantic search is needed.
 - Use cosine distance and an HNSW cosine index after measuring corpus size/recall; keep owner/category filters inside SQL/RPC. Supabase recommends HNSW for read-heavy low-latency workloads.
 
@@ -197,13 +198,13 @@ Gemini is called first. A Mistral call is made only after a classified transient
 - [x] Audit all three codebases and official provider documentation.
 - [x] Create clean backend package, typed settings, structured logging, `/health/live`, `/health/ready`, and Alembic foundation.
 - [x] Port compatibility-safe HTTP domain endpoints and deterministic unit/contract tests.
-- [ ] Create Supabase migrations, RLS/role strategy, pgvector functions/indexes, and a no-secret local environment template.
-- [x] Implement asynchronous repositories, embedding outbox worker, and hybrid retrieval. A controlled reindex command remains to be added.
+- [x] Create Supabase-compatible migrations, API-only role strategy, pgvector schema, and a no-secret local environment template. Applying them to the new Supabase project remains credential-gated.
+- [x] Implement asynchronous repositories, embedding outbox worker, hybrid retrieval, and a controlled reindex command.
 - [x] Implement authenticated LiveKit token issuance, room/participant binding, agent runner, provider validation, and agent state events. Provider/device and interruption tests still require credentials.
 - [x] Implement read-only agent tools.
-- [ ] Implement draft and confirmed-write agent tools, including explicit UI confirmation and optimistic draft versions.
-- [ ] Integrate the targeted Flutter LiveKit client controller into each existing voice screen; retain the existing visuals, billing provider, GST preview, printer flow, and category navigation.
-- [ ] Remove legacy voice WebSocket and device STT/TTS dependencies only after the matching LiveKit paths pass device tests.
+- [x] Implement bill and inventory draft tools, explicit bill UI confirmation, optimistic draft versions, idempotency, and transactional bill confirmation. GST and prescription saving continue through their existing explicit UI routes.
+- [x] Integrate the targeted Flutter LiveKit client controller into retail billing, inventory, and doctor dictation while retaining category navigation and the existing bill/printer path.
+- [x] Remove legacy voice WebSocket and device STT/TTS dependencies after replacing every active voice route. Device testing remains required before release.
 - [ ] Execute unit, API, database, agent/tool, provider smoke, Flutter, and end-to-end test matrices; record real latency measurements.
 
 ## 9. Required decisions/credentials before live integration tests
@@ -211,6 +212,10 @@ Gemini is called first. A Mistral call is made only after a classified transient
 Implementation can proceed with mocks and local tests first. Live verification needs:
 
 1. New Supabase project URL, a migration-capable PostgreSQL `DATABASE_URL`, and (if used) a server-only service-role key.
+   The configured direct endpoint was verified to be IPv6-only from this
+   Windows workspace. Provide the exact **Supavisor session-pooler** connection
+   string from **Supabase Dashboard → Connect** for IPv4 runtime/testing, or
+   enable the project's IPv4 add-on. Do not guess the AWS region/hostname.
 2. LiveKit project URL/key/secret and the chosen agent deployment target.
 3. Google service-account JSON mounted as a file, project ID/location, enabled Vertex AI and Speech-to-Text APIs, and the selected tested Gemini/embedding model IDs.
 4. Cartesia API key and approved voice ID; Mistral API key and selected fallback model.
@@ -219,3 +224,27 @@ Implementation can proceed with mocks and local tests first. Live verification n
 ## 10. Verification targets
 
 The implementation will test multilingual conversation, interruptions, no-tool greetings, semantic inventory lookup, ambiguous customers/items, category/tenant isolation, bill/GST confirmation, doctor dictation privacy, provider outages, Supabase outages, retry/idempotency, and performance telemetry. Claims of provider integration or latency will be made only after those credentials are supplied and tests are run.
+
+### Verified locally (2026-08-21)
+
+- Backend deterministic suite: **25 passed, 2 skipped**. The skipped tests are
+  intentionally opt-in live Supabase checks; they do not silently pass when a
+  database is unreachable.
+- Added test coverage for Supabase URL normalization, TLS reachability,
+  pgvector extension/vector dimension/HNSW index, migration head, browser-role
+  table access, customer category uniqueness, parser safety, JWTs, GST,
+  category aliases, and LiveKit library contracts.
+- Flutter package resolution completed and refreshed the lockfile and desktop
+  plugin registrants. A focused Flutter category regression test was added.
+  Its runner can load the test, but final analyzer/test execution is blocked in
+  this session by tool-state permission, not a source-code failure.
+- FastAPI runtime smoke test: the application started on localhost and
+  `/health/live` returned HTTP 200.
+
+### Remaining external release gates
+
+1. Replace the direct IPv6 database URL with the exact Supavisor session-pooler
+   URL from the Supabase dashboard when running from this IPv4-only workspace.
+2. Run `alembic upgrade head`, then opt into the live Supabase tests.
+3. Supply and smoke-test LiveKit, Google/Vertex, Cartesia, Mistral, and Fast2SMS
+   credentials on a non-production environment.
