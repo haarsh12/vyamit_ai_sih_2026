@@ -150,14 +150,62 @@ class _VoiceInventoryScreenState extends State<VoiceInventoryScreen>
             const Spacer(),
           ] else ...[
             Text(_status, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 12),
-            Expanded(child: ListView(children: [for (final category in _categories) ...[
-              Text(category.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              for (final item in category.items) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
-                TextFormField(initialValue: item.name, decoration: const InputDecoration(labelText: 'Item'), onChanged: (value) => item.name = value),
-                Row(children: [Expanded(child: TextFormField(initialValue: '${item.price}', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Price'), onChanged: (value) => item.price = double.tryParse(value) ?? 0)), const SizedBox(width: 12), Expanded(child: TextFormField(initialValue: item.unit, decoration: const InputDecoration(labelText: 'Unit'), onChanged: (value) => item.unit = value))]),
-                if (item.isExisting) Text('Updates existing item${item.oldPrice == null ? '' : ' (old price ₹${item.oldPrice})'}', style: const TextStyle(color: AppColors.textGrey)),
-              ]))),
-            ])),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final category in _categories) ...[
+                    Text(
+                      category.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    for (final item in category.items)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                initialValue: item.name,
+                                decoration: const InputDecoration(labelText: 'Item'),
+                                onChanged: (value) => item.name = value,
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: '${item.price}',
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(labelText: 'Price'),
+                                      onChanged: (value) => item.price =
+                                          double.tryParse(value) ?? 0,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: item.unit,
+                                      decoration: const InputDecoration(labelText: 'Unit'),
+                                      onChanged: (value) => item.unit = value,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (item.isExisting)
+                                Text(
+                                  'Updates existing item${item.oldPrice == null ? '' : ' (old price ₹${item.oldPrice})'}',
+                                  style: const TextStyle(color: AppColors.textGrey),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
             SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'SAVING…' : 'SAVE REVIEWED CHANGES'))),
           ],
         ]),

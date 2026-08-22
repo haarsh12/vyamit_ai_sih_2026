@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.sql import text
 
 from app.config.settings import Settings, get_settings
@@ -55,6 +57,30 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         )
     async with session_factory() as session:
         yield session
+
+
+@asynccontextmanager
+async def get_agent_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Create an event-loop-local database session for an AgentServer job.
+
+    LiveKit starts each dispatched job in its own asyncio event loop. asyncpg
+    connections from the API's cached pool are bound to their original loop,
+    so sharing that pool makes a job crash before its agent session starts.
+    NullPool deliberately creates no reusable cross-loop connections.
+    """
+
+    database_url = get_settings().require_database()
+    engine = create_async_engine(
+        database_url,
+        poolclass=NullPool,
+        connect_args={"command_timeout": 30, "statement_cache_size": 0},
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    try:
+        async with factory() as session:
+            yield session
+    finally:
+        await engine.dispose()
 
 
 async def database_is_ready(settings: Settings | None = None) -> bool:

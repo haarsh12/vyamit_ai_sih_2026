@@ -35,7 +35,43 @@ class AuthProvider with ChangeNotifier {
         medicalRegistrationNumber: data['medical_registration_number'] ?? '',
         qualifications: data['qualifications'] ?? '',
       );
+    }
 
+    // The backend owns the inventory namespace. Refresh this small profile
+    // payload on launch so a category changed on another device (or from an
+    // older app version) cannot hide otherwise valid inventory items.
+    try {
+      final response = await _apiClient.get('/auth/profile');
+      if (response is Map<String, dynamic>) {
+        final category =
+            canonicalShopCategory(response['shop_category'] as String?);
+        final userData = {
+          'user_id': response['user_id'] ?? 0,
+          'shop_name': response['shop_name'] ?? 'My Kirana',
+          'owner_name': response['owner_name'] ?? 'Owner',
+          'address': response['address'] ?? 'India',
+          'phone_number': response['phone_number'] ?? '',
+          'phone2': response['phone2'] ?? '',
+          'shop_category': category,
+          'medical_registration_number':
+              response['medical_registration_number'] ?? '',
+          'qualifications': response['qualifications'] ?? '',
+        };
+        await prefs.setString('user_data', jsonEncode(userData));
+        _shopDetails = ShopDetails(
+          shopName: userData['shop_name'] as String,
+          ownerName: userData['owner_name'] as String,
+          address: userData['address'] as String,
+          phone1: userData['phone_number'] as String,
+          phone2: userData['phone2'] as String,
+          shopCategory: category,
+          medicalRegistrationNumber:
+              userData['medical_registration_number'] as String,
+          qualifications: userData['qualifications'] as String,
+        );
+      }
+    } catch (_) {
+      // Offline startup still works with the last known local profile.
     }
 
     notifyListeners();

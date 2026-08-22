@@ -9,7 +9,7 @@ class InventoryProvider with ChangeNotifier {
 
   // Start with empty inventory
   List<Item> _items = [];
-  
+
   // Product groups for the currently active shop category. These are not the
   // same as the profile's shop category / server-side inventory namespace.
   String _shopCategory = kDefaultShopCategory;
@@ -73,26 +73,27 @@ class InventoryProvider with ChangeNotifier {
   Future<void> deleteCategory(String categoryName) async {
     try {
       print("🗑️ Deleting category: $categoryName");
-      
+
       // Get all items in this category
-      final itemsToDelete = _items.where((i) => i.category == categoryName).toList();
-      
+      final itemsToDelete =
+          _items.where((i) => i.category == categoryName).toList();
+
       // Delete all items from backend
       for (var item in itemsToDelete) {
         await _service.deleteItem(item.id);
       }
-      
+
       // Remove items from local list
       _items.removeWhere((i) => i.category == categoryName);
-      
+
       // Remove category
       _categories.remove(categoryName);
-      
+
       // Switch to first available category if current was deleted
       if (_selectedCategory == categoryName && _categories.isNotEmpty) {
         _selectedCategory = _categories.first;
       }
-      
+
       notifyListeners();
       print("✅ Category deleted: $categoryName");
     } catch (e) {
@@ -118,7 +119,8 @@ class InventoryProvider with ChangeNotifier {
       // A profile switch may have started a new load while this request was
       // in flight. Do not paint an old category's response into the newly
       // selected category, even momentarily.
-      if (requestVersion != _fetchVersion || requestedCategory != _shopCategory) {
+      if (requestVersion != _fetchVersion ||
+          requestedCategory != _shopCategory) {
         return;
       }
 
@@ -131,7 +133,7 @@ class InventoryProvider with ChangeNotifier {
                 canonicalShopCategory(item.shopCategory) == requestedCategory,
           )
           .toList();
-      
+
       // Add any custom categories from backend items that aren't in predefined list
       for (var item in _items) {
         if (!_categories.contains(item.category)) {
@@ -152,7 +154,8 @@ class InventoryProvider with ChangeNotifier {
   Future<void> addItem(Item newItem) async {
     final requestedCategory = _shopCategory;
     try {
-      print("💾 Saving item: ${newItem.id} (${newItem.names[0]}) - ₹${newItem.price}");
+      print(
+          "💾 Saving item: ${newItem.id} (${newItem.names[0]}) - ₹${newItem.price}");
       print("   Category: ${newItem.category}, Unit: ${newItem.unit}");
 
       // Call backend (POST endpoint handles upsert based on ID)
@@ -183,6 +186,7 @@ class InventoryProvider with ChangeNotifier {
     } catch (e) {
       print("❌ Save Error: $e");
       await fetchItems(expectedShopCategory: requestedCategory);
+      rethrow;
     }
   }
 
@@ -197,10 +201,10 @@ class InventoryProvider with ChangeNotifier {
       if (requestedCategory != _shopCategory) {
         return;
       }
-      
+
       // Remove from local list
       _items.removeWhere((i) => i.id == id);
-      
+
       notifyListeners();
       print("✅ Deleted from backend");
     } catch (e) {

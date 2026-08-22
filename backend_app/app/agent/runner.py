@@ -17,7 +17,7 @@ from app.agent.providers import create_llm, create_stt, create_tts
 from app.agent.tools import VyamitAssistant
 from app.config.settings import get_settings
 from app.core.logging import configure_logging
-from app.db.session import get_session_factory
+from app.db.session import get_agent_db_session
 from app.repositories.voice_sessions import VoiceSessionRepository
 
 
@@ -50,10 +50,7 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     settings = get_settings()
     settings.require_agent_providers()
     await ctx.connect()
-    factory = get_session_factory()
-    if factory is None:
-        raise RuntimeError("DATABASE_URL is required by the Vyamit agent.")
-    async with factory() as db_session:
+    async with get_agent_db_session() as db_session:
         expected_identity = await VoiceSessionRepository(db_session).expected_participant_identity(ctx.room.name)
     if expected_identity is None:
         logger.warning("agent_rejected_unbound_room", extra={"room": ctx.room.name})
@@ -72,7 +69,7 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         logger.warning("agent_rejected_missing_bound_participant", extra={"room": ctx.room.name})
         ctx.shutdown(reason="The authenticated participant did not join in time.")
         return
-    async with factory() as db_session:
+    async with get_agent_db_session() as db_session:
         tenant = await VoiceSessionRepository(db_session).resolve_tenant(
             ctx.room.name, participant.identity
         )
@@ -114,7 +111,7 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     async def close_database_session() -> None:
         """Run after the LiveKit job/session has actually ended, not after start()."""
 
-        async with factory() as db_session:
+        async with get_agent_db_session() as db_session:
             await VoiceSessionRepository(db_session).close(tenant.session_id)
             await db_session.commit()
 

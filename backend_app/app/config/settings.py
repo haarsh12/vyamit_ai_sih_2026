@@ -40,7 +40,10 @@ class Settings(BaseSettings):
     google_application_credentials: str | None = None
     google_cloud_project: str = ""
     google_cloud_location: str = "global"
-    google_stt_model: str = "chirp"
+    # `latest_long` is supported by the installed Google STT integration and
+    # supports streaming recognition. Newer Chirp model identifiers vary by
+    # Google Speech API generation and must not be used without an upgrade.
+    google_stt_model: str = "latest_long"
     google_stt_languages: str = "hi-IN,mr-IN,en-IN"
     google_keyterms: str = "Vyamit,व्यामित,नमस्ते,धन्यवाद,मराठी"
     vertex_gemini_model: str = ""
@@ -151,9 +154,18 @@ class Settings(BaseSettings):
         missing = [name for name, value in required if not _has_value(value)]
         if missing:
             raise RuntimeError(f"Missing agent provider configuration: {', '.join(missing)}")
-        credential_path = Path(self.google_application_credentials or "")
+        credential_path = self.google_credentials_path
         if not credential_path.is_file():
             raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS must point to a mounted credential file.")
+
+    @property
+    def google_credentials_path(self) -> Path:
+        """Resolve a local credential filename relative to the backend root."""
+
+        configured = Path(self.google_application_credentials or "")
+        if configured.is_absolute():
+            return configured
+        return Path(__file__).resolve().parents[2] / configured
 
 
 def _has_value(value: str | SecretStr | None) -> bool:

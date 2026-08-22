@@ -15,6 +15,9 @@ def create_stt(settings: Settings) -> google.STT:
     return google.STT(
         languages=settings.stt_languages,
         model=settings.google_stt_model,
+        project=settings.google_cloud_project,
+        location=settings.google_cloud_location,
+        credentials_file=str(settings.google_credentials_path),
         spoken_punctuation=True,
         keywords=keywords,
     )

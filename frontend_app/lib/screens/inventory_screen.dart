@@ -15,12 +15,12 @@ class InventoryScreen extends StatefulWidget {
   });
 
   @override
-  State<InventoryScreen> createState() =>  _InventoryScreenState();
+  State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  
+
   // Delete mode state
   bool _isDeleteMode = false;
   Set<String> _selectedItemIds = {};
@@ -40,11 +40,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => Provider.of<InventoryProvider>(context, listen: false)
-        .loadForShopCategory(widget.shopCategory));
+    Future.microtask(() =>
+        Provider.of<InventoryProvider>(context, listen: false)
+            .loadForShopCategory(widget.shopCategory));
     Future.microtask(() async {
       try {
-        await Provider.of<GstProvider>(context, listen: false).loadConfiguration();
+        await Provider.of<GstProvider>(context, listen: false)
+            .loadConfiguration();
       } catch (_) {
         // Inventory remains usable when the configuration endpoint is offline.
       }
@@ -70,7 +72,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         margin: const EdgeInsets.all(20),
         duration: const Duration(seconds: 2)));
   }
-  
+
   void _toggleDeleteMode() {
     setState(() {
       _isDeleteMode = !_isDeleteMode;
@@ -78,10 +80,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _selectedItemIds.clear();
         _selectAll = false;
       }
-
     });
   }
-  
+
   void _toggleSelectAll(List<Item> items) {
     setState(() {
       _selectAll = !_selectAll;
@@ -92,7 +93,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       }
     });
   }
-  
+
   void _toggleItemSelection(String itemId) {
     setState(() {
       if (_selectedItemIds.contains(itemId)) {
@@ -102,18 +103,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
       }
     });
   }
-  
+
   void _deleteSelectedItems() {
     if (_selectedItemIds.isEmpty) {
       _showNotification("No items selected");
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Delete Items"),
-        content: Text("Are you sure you want to delete ${_selectedItemIds.length} item(s)?"),
+        content: Text(
+            "Are you sure you want to delete ${_selectedItemIds.length} item(s)?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -121,12 +123,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final provider = Provider.of<InventoryProvider>(context, listen: false);
+              final provider =
+                  Provider.of<InventoryProvider>(context, listen: false);
               for (String itemId in _selectedItemIds) {
                 await provider.deleteItem(itemId);
               }
               await provider.fetchItems();
-              
+
               if (mounted) {
                 Navigator.pop(context);
                 _showNotification("${_selectedItemIds.length} item(s) deleted");
@@ -147,10 +150,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
     );
   }
-  
+
   void _showAddCategoryDialog() {
     final categoryNameCtrl = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -159,7 +162,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           controller: categoryNameCtrl,
           decoration: const InputDecoration(
             labelText: "Category Name *",
-
             hintText: "e.g., Snacks, Beverages",
           ),
           autofocus: true,
@@ -172,11 +174,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ElevatedButton(
             onPressed: () {
               if (categoryNameCtrl.text.trim().isNotEmpty) {
-                final provider = Provider.of<InventoryProvider>(context, listen: false);
+                final provider =
+                    Provider.of<InventoryProvider>(context, listen: false);
                 provider.addCategory(categoryNameCtrl.text.trim());
                 provider.setCategory(categoryNameCtrl.text.trim());
                 Navigator.pop(context);
-                _showNotification("Category '${categoryNameCtrl.text.trim()}' added");
+                _showNotification(
+                    "Category '${categoryNameCtrl.text.trim()}' added");
               }
             },
             style: ElevatedButton.styleFrom(
@@ -189,11 +193,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
     );
   }
-  
+
   void _showDeleteCategoryDialog(String categoryName) {
     final provider = Provider.of<InventoryProvider>(context, listen: false);
-    final itemCount = provider.items.where((i) => i.category == categoryName).length;
-    
+    final itemCount =
+        provider.items.where((i) => i.category == categoryName).length;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -233,6 +238,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
     );
   }
+
   void _showItemDialog({Item? item}) {
     final bool isEdit = item != null;
     final gstProvider = Provider.of<GstProvider>(context, listen: false);
@@ -240,7 +246,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     // 4 NAME FIELDS
     final name1Ctrl = TextEditingController(
-
         text: isEdit && item.names.isNotEmpty ? item.names[0] : '');
     final name2Ctrl = TextEditingController(
         text: isEdit && item.names.length > 1 ? item.names[1] : '');
@@ -253,38 +258,42 @@ class _InventoryScreenState extends State<InventoryScreen> {
         TextEditingController(text: isEdit ? item.price.toString() : '');
     final customUnitCtrl = TextEditingController(text: isEdit ? item.unit : '');
     final customCategoryCtrl = TextEditingController();
-    final hsnCodeCtrl = TextEditingController(text: isEdit ? item.hsnCode ?? '' : '');
-    final taxCategoryCtrl = TextEditingController(text: isEdit ? item.taxCategory ?? '' : '');
-    
+    final hsnCodeCtrl =
+        TextEditingController(text: isEdit ? item.hsnCode ?? '' : '');
+    final taxCategoryCtrl =
+        TextEditingController(text: isEdit ? item.taxCategory ?? '' : '');
+
     final existingGstRate = isEdit ? item.gstRate : 0.0;
-    final existingRateStr = existingGstRate == existingGstRate.toInt() 
-        ? existingGstRate.toInt().toString() 
+    final existingRateStr = existingGstRate == existingGstRate.toInt()
+        ? existingGstRate.toInt().toString()
         : existingGstRate.toString();
-        
+
     const standardGstChips = ['0', '5', '12', '18', '28'];
     bool isCustomGst = !standardGstChips.contains(existingRateStr);
     String selectedGstChip = isCustomGst ? 'Other' : existingRateStr;
-    final customGstRateCtrl = TextEditingController(text: isCustomGst ? existingRateStr : '');
+    final customGstRateCtrl =
+        TextEditingController(text: isCustomGst ? existingRateStr : '');
 
     String selectedCategory = isEdit
         ? item.category
         : Provider.of<InventoryProvider>(context, listen: false)
             .selectedCategory;
-    
+
     // Get categories from provider
-    final providerCategories = Provider.of<InventoryProvider>(context, listen: false).categories;
+    final providerCategories =
+        Provider.of<InventoryProvider>(context, listen: false).categories;
 
     // Initial Unit Selection Logic
     String selectedUnit = 'kg';
     bool isCustomUnit = false;
     bool isCustomCategory = false;
-    
+
     // Validation error states
     bool showName1Error = false;
     bool showPriceError = false;
     bool showUnitError = false;
     bool showCategoryError = false;
-    
+
     if (isEdit) {
       if (_standardUnits.contains(item.unit) && item.unit != 'Other') {
         selectedUnit = item.unit;
@@ -314,14 +323,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           : providerCategories[0],
                       decoration: InputDecoration(
                         labelText: "Category *",
-                        errorText: showCategoryError ? "Category required" : null,
+                        errorText:
+                            showCategoryError ? "Category required" : null,
                         errorStyle: const TextStyle(color: Colors.red),
                       ),
                       items: [
-                        ...providerCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                        const DropdownMenuItem(value: '__NEW_CATEGORY__', child: Text('+ New Category')),
+                        ...providerCategories.map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c))),
+                        const DropdownMenuItem(
+                            value: '__NEW_CATEGORY__',
+                            child: Text('+ New Category')),
                       ],
-
                       onChanged: (val) {
                         setDialogState(() {
                           selectedCategory = val!;
@@ -340,7 +352,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             labelText: "New Category Name *",
                             hintText: "e.g., Snacks, Beverages",
                             isDense: true,
-                            errorText: showCategoryError ? "Category name required" : null,
+                            errorText: showCategoryError
+                                ? "Category name required"
+                                : null,
                             errorStyle: const TextStyle(color: Colors.red),
                           ),
                           onChanged: (val) {
@@ -402,7 +416,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             labelText: "Unit *",
                             errorText: showUnitError ? "Unit required" : null,
                             errorStyle: const TextStyle(color: Colors.red),
-
                           ),
                           items: _standardUnits
                               .map((u) =>
@@ -425,7 +438,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               decoration: InputDecoration(
                                 labelText: "Type Unit *",
                                 isDense: true,
-                                errorText: showUnitError ? "Unit name required" : null,
+                                errorText:
+                                    showUnitError ? "Unit name required" : null,
                                 errorStyle: const TextStyle(color: Colors.red),
                               ),
                               onChanged: (val) {
@@ -445,21 +459,36 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isGstEnabled ? AppColors.lightGreenBg : Colors.grey[100],
+                    color: isGstEnabled
+                        ? AppColors.lightGreenBg
+                        : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isGstEnabled ? AppColors.primaryGreen.withOpacity(0.3) : Colors.grey[300]!),
+                    border: Border.all(
+                        color: isGstEnabled
+                            ? AppColors.primaryGreen.withOpacity(0.3)
+                            : Colors.grey[300]!),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isGstEnabled ? 'GST Item Details' : 'Enable GST Billing in Profile to edit tax details',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isGstEnabled ? AppColors.primaryGreen : Colors.grey[700]),
+                        isGstEnabled
+                            ? 'GST Item Details'
+                            : 'Enable GST Billing in Profile to edit tax details',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isGstEnabled
+                                ? AppColors.primaryGreen
+                                : Colors.grey[700]),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         'Select GST Percentage (GST %)',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700]),
                       ),
                       const SizedBox(height: 8),
                       // Circular selection chips
@@ -482,21 +511,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 height: 44,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? AppColors.primaryGreen : Colors.white,
-
+                                  color: isSelected
+                                      ? AppColors.primaryGreen
+                                      : Colors.white,
                                   border: Border.all(
-                                    color: isSelected ? AppColors.primaryGreen : Colors.grey[400]!,
+                                    color: isSelected
+                                        ? AppColors.primaryGreen
+                                        : Colors.grey[400]!,
                                     width: isSelected ? 2 : 1,
                                   ),
                                   boxShadow: isSelected
-                                      ? [BoxShadow(color: AppColors.primaryGreen.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))]
+                                      ? [
+                                          BoxShadow(
+                                              color: AppColors.primaryGreen
+                                                  .withOpacity(0.3),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2))
+                                        ]
                                       : null,
                                 ),
                                 child: Center(
                                   child: Text(
                                     '$rate%',
                                     style: TextStyle(
-                                      color: isSelected ? Colors.white : Colors.black87,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -515,19 +555,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 : null,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(22),
-                                color: selectedGstChip == 'Other' ? AppColors.primaryGreen : Colors.white,
+                                color: selectedGstChip == 'Other'
+                                    ? AppColors.primaryGreen
+                                    : Colors.white,
                                 border: Border.all(
-                                  color: selectedGstChip == 'Other' ? AppColors.primaryGreen : Colors.grey[400]!,
+                                  color: selectedGstChip == 'Other'
+                                      ? AppColors.primaryGreen
+                                      : Colors.grey[400]!,
                                   width: selectedGstChip == 'Other' ? 2 : 1,
                                 ),
                               ),
                               child: Text(
                                 'Other',
                                 style: TextStyle(
-                                  color: selectedGstChip == 'Other' ? Colors.white : Colors.black87,
+                                  color: selectedGstChip == 'Other'
+                                      ? Colors.white
+                                      : Colors.black87,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -536,14 +583,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                         ],
                       ),
-                      
+
                       // Custom GST Rate Input field if 'Other' selected
                       if (selectedGstChip == 'Other' && isGstEnabled)
                         Padding(
                           padding: const EdgeInsets.only(top: 10),
                           child: TextField(
                             controller: customGstRateCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Custom GST Rate (%) *',
                               hintText: 'e.g. 3, 0.25, 9, 14',
@@ -564,7 +612,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               hintText: 'e.g. 4820 (HSN) / 998314 (SAC)',
                               isDense: true,
                             ),
-
                           ),
                         ),
                       ]),
@@ -631,14 +678,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 onPressed: () async {
                   // Validation
                   bool hasError = false;
-                  
+
                   if (name1Ctrl.text.trim().isEmpty) {
                     setDialogState(() => showName1Error = true);
                     hasError = true;
                   }
-                  
+
                   final priceValue = double.tryParse(priceCtrl.text);
-                  if (priceCtrl.text.trim().isEmpty || priceValue == null || priceValue <= 0) {
+                  if (priceCtrl.text.trim().isEmpty ||
+                      priceValue == null ||
+                      priceValue <= 0) {
                     setDialogState(() => showPriceError = true);
                     hasError = true;
                     if (priceValue != null && priceValue <= 0) {
@@ -646,37 +695,43 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     }
                   }
 
-                  
                   if (isCustomUnit && customUnitCtrl.text.trim().isEmpty) {
                     setDialogState(() => showUnitError = true);
                     hasError = true;
                   }
-                  
-                  if (isCustomCategory && customCategoryCtrl.text.trim().isEmpty) {
+
+                  if (isCustomCategory &&
+                      customCategoryCtrl.text.trim().isEmpty) {
                     setDialogState(() => showCategoryError = true);
                     hasError = true;
                   }
-                  
+
                   if (hasError) return;
 
                   // Collect all names
                   List<String> names = [name1Ctrl.text.trim()];
-                  if (name2Ctrl.text.trim().isNotEmpty) names.add(name2Ctrl.text.trim());
-                  if (name3Ctrl.text.trim().isNotEmpty) names.add(name3Ctrl.text.trim());
-                  if (name4Ctrl.text.trim().isNotEmpty) names.add(name4Ctrl.text.trim());
+                  if (name2Ctrl.text.trim().isNotEmpty)
+                    names.add(name2Ctrl.text.trim());
+                  if (name3Ctrl.text.trim().isNotEmpty)
+                    names.add(name3Ctrl.text.trim());
+                  if (name4Ctrl.text.trim().isNotEmpty)
+                    names.add(name4Ctrl.text.trim());
 
 // Determine Unit
                   String finalUnit =
                       isCustomUnit ? customUnitCtrl.text.trim() : selectedUnit;
                   if (finalUnit.isEmpty) finalUnit = 'kg';
-                  
+
                   // Determine Category
                   String finalCategory = selectedCategory;
-                  if (isCustomCategory && customCategoryCtrl.text.trim().isNotEmpty) {
+                  if (isCustomCategory &&
+                      customCategoryCtrl.text.trim().isNotEmpty) {
                     finalCategory = customCategoryCtrl.text.trim();
                   } else if (isCustomCategory) {
                     // If custom category selected but no name provided, use first available
-                    finalCategory = providerCategories.isNotEmpty ? providerCategories[0] : 'Other';
+                    finalCategory = providerCategories.isNotEmpty
+                        ? providerCategories[0]
+                        : 'Other';
                   }
 
                   // Determine GST rate from chip selection
@@ -689,7 +744,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   final double gstRate = double.tryParse(gstRateStr) ?? 0.0;
 
                   final newItem = Item(
-                    id: isEdit ? item.id : 'custom_${DateTime.now().millisecondsSinceEpoch}_${names[0].toLowerCase().replaceAll(' ', '_')}',
+                    id: isEdit
+                        ? item.id
+                        : 'custom_${DateTime.now().millisecondsSinceEpoch}_${names[0].toLowerCase().replaceAll(' ', '_')}',
                     names: names,
                     price: double.tryParse(priceCtrl.text) ?? 0,
                     unit: finalUnit,
@@ -698,35 +755,40 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     hsnCode: isGstEnabled && hsnCodeCtrl.text.trim().isNotEmpty
                         ? hsnCodeCtrl.text.trim().toUpperCase()
                         : null,
-                    taxCategory: isGstEnabled && taxCategoryCtrl.text.trim().isNotEmpty
-                        ? taxCategoryCtrl.text.trim()
-                        : null,
+                    taxCategory:
+                        isGstEnabled && taxCategoryCtrl.text.trim().isNotEmpty
+                            ? taxCategoryCtrl.text.trim()
+                            : null,
                   );
 
-                  // Save the item
-                  await Provider.of<InventoryProvider>(context, listen: false)
-                      .addItem(newItem);
+                  // Keep this reference before awaiting. The dialog may be
+                  // dismissed while an API request is in flight, and looking
+                  // up Provider from a deactivated dialog context crashes.
+                  final inventoryProvider =
+                      Provider.of<InventoryProvider>(context, listen: false);
 
-                  // CRITICAL: Force refresh from backend to ensure UI shows latest data
-                  await Provider.of<InventoryProvider>(context, listen: false)
-                      .fetchItems();
-                  
+                  await inventoryProvider.addItem(newItem);
+                  await inventoryProvider.fetchItems();
+
+                  if (!context.mounted) return;
+
                   // Switch to the new category if it was just created
-                  if (isCustomCategory && customCategoryCtrl.text.trim().isNotEmpty) {
-                    Provider.of<InventoryProvider>(context, listen: false)
-                        .setCategory(finalCategory);
+                  if (isCustomCategory &&
+                      customCategoryCtrl.text.trim().isNotEmpty) {
+                    inventoryProvider.setCategory(finalCategory);
                   }
 
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
                   if (mounted) {
-                    Navigator.pop(context);
-                    _showNotification("${names[0]} saved");
+                    _showNotification('${names[0]} saved');
                   }
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     foregroundColor: Colors.white),
                 child: const Text("Save"),
-
               ),
             ],
           );
@@ -740,12 +802,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Consumer<InventoryProvider>(
       builder: (context, provider, child) {
         final filteredItems = provider.getFilteredItems(_searchController.text);
-        
+
         // Use categories from provider
         final displayCategories = provider.categories;
-        
+
         // Ensure selected category exists
-        if (!displayCategories.contains(provider.selectedCategory) && displayCategories.isNotEmpty) {
+        if (!displayCategories.contains(provider.selectedCategory) &&
+            displayCategories.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             provider.setCategory(displayCategories.first);
           });
@@ -774,7 +837,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             TextButton.icon(
                               onPressed: () => _toggleSelectAll(filteredItems),
                               icon: Icon(
-                                _selectAll ? Icons.check_box : Icons.check_box_outline_blank,
+                                _selectAll
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
                                 size: 20,
                               ),
                               label: const Text("Select All"),
@@ -783,14 +848,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                           IconButton(
-                            onPressed: _isDeleteMode && _selectedItemIds.isNotEmpty
-                                ? _deleteSelectedItems
-                                : _toggleDeleteMode,
+                            onPressed:
+                                _isDeleteMode && _selectedItemIds.isNotEmpty
+                                    ? _deleteSelectedItems
+                                    : _toggleDeleteMode,
                             icon: Icon(
-                              _isDeleteMode ? Icons.delete : Icons.delete_outline,
+                              _isDeleteMode
+                                  ? Icons.delete
+                                  : Icons.delete_outline,
                               color: Colors.red,
                             ),
-                            tooltip: _isDeleteMode ? "Delete Selected" : "Delete Mode",
+                            tooltip: _isDeleteMode
+                                ? "Delete Selected"
+                                : "Delete Mode",
                           ),
                         ],
                       ),
@@ -807,7 +877,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       hintText: "Search items...",
                       prefixIcon: const Icon(Icons.search),
                       fillColor: Colors.white,
-
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -822,7 +891,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     scrollDirection: Axis.horizontal,
-                    itemCount: displayCategories.length + 1, // +1 for Add button
+                    itemCount:
+                        displayCategories.length + 1, // +1 for Add button
                     separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
                       // Add Category button at the end
@@ -831,10 +901,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           label: const Icon(Icons.add, size: 20),
                           onPressed: _showAddCategoryDialog,
                           backgroundColor: Colors.white,
-                          side: BorderSide(color: AppColors.primaryGreen.withOpacity(0.5)),
+                          side: BorderSide(
+                              color: AppColors.primaryGreen.withOpacity(0.5)),
                         );
                       }
-                      
+
                       final cat = displayCategories[index];
                       final isSelected = provider.selectedCategory == cat;
                       return GestureDetector(
@@ -875,29 +946,36 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               itemCount: filteredItems.length,
                               itemBuilder: (context, index) {
                                 final item = filteredItems[index];
-                                final isSelected = _selectedItemIds.contains(item.id);
-                                
+                                final isSelected =
+                                    _selectedItemIds.contains(item.id);
+
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 12),
-                                  color: isSelected ? AppColors.primaryGreen.withOpacity(0.1) : null,
+                                  color: isSelected
+                                      ? AppColors.primaryGreen.withOpacity(0.1)
+                                      : null,
                                   child: ListTile(
                                     onTap: _isDeleteMode
                                         ? () => _toggleItemSelection(item.id)
                                         : () => _showItemDialog(item: item),
-                                    onLongPress: () => _showItemDialog(item: item),
+                                    onLongPress: () =>
+                                        _showItemDialog(item: item),
                                     leading: _isDeleteMode
                                         ? Checkbox(
                                             value: isSelected,
-
-                                            onChanged: (val) => _toggleItemSelection(item.id),
+                                            onChanged: (val) =>
+                                                _toggleItemSelection(item.id),
                                             activeColor: AppColors.primaryGreen,
                                           )
                                         : CircleAvatar(
-                                            backgroundColor: AppColors.lightGreenBg,
+                                            backgroundColor:
+                                                AppColors.lightGreenBg,
                                             child: Text(item.names[0][0],
                                                 style: const TextStyle(
-                                                    color: AppColors.primaryGreen,
-                                                    fontWeight: FontWeight.bold)),
+                                                    color:
+                                                        AppColors.primaryGreen,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                           ),
                                     title: Text(item.names[0],
                                         style: const TextStyle(
@@ -967,4 +1045,3 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 }
-

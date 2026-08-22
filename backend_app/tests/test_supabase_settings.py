@@ -17,3 +17,10 @@ def test_database_configuration_fails_closed_when_missing() -> None:
     settings = Settings(database_url=None)
 
     assert settings.async_database_url is None
+
+
+def test_relative_google_credential_filename_resolves_from_backend_root() -> None:
+    settings = Settings(google_application_credentials="service-account.json")
+
+    assert settings.google_credentials_path.name == "service-account.json"
+    assert settings.google_credentials_path.parent.name == "backend_app"

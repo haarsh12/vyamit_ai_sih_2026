@@ -23,7 +23,7 @@ class VertexAuthentication:
 def load_vertex_authentication(settings: Settings) -> VertexAuthentication:
     """Load a file-mounted service account and infer its project where permitted."""
 
-    credential_path = Path(settings.google_application_credentials or "")
+    credential_path = settings.google_credentials_path
     if not credential_path.is_file():
         raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS must reference a readable mounted credential file.")
     credentials = service_account.Credentials.from_service_account_file(
