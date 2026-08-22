@@ -80,6 +80,33 @@ class BillProvider with ChangeNotifier {
     }
   }
 
+  // Update item quantity in current bill
+  void updateBillItemQuantity(int index, double newQty) {
+    if (index >= 0 && index < _currentBillItems.length) {
+      if (newQty <= 0) {
+        removeBillItem(index);
+        return;
+      }
+      final item = Map<String, dynamic>.from(_currentBillItems[index]);
+      final rate = (item['rate'] as num?)?.toDouble() ?? (item['price'] as num?)?.toDouble() ?? 0.0;
+      item['qty'] = newQty;
+      item['qty_display'] = newQty == newQty.toInt() ? newQty.toInt().toString() : newQty.toString();
+      item['total'] = rate * newQty;
+      _currentBillItems[index] = item;
+      _saveBillItemsToStorage();
+      notifyListeners();
+    }
+  }
+
+  // Update item details in current bill
+  void updateBillItem(int index, Map<String, dynamic> updatedItem) {
+    if (index >= 0 && index < _currentBillItems.length) {
+      _currentBillItems[index] = updatedItem;
+      _saveBillItemsToStorage();
+      notifyListeners();
+    }
+  }
+
   // Clear current bill (Cancel Bill button)
   void clearBill() {
     _currentBillItems.clear();

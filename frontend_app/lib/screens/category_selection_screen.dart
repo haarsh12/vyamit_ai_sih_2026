@@ -76,12 +76,20 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFFAFCFF),
         elevation: 0,
-        leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new_rounded)),
+        leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20)),
         title: const Column(
           children: [
-            Text('STEP 1 OF 2', style: TextStyle(color: AppColors.primaryGreen, fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
-            SizedBox(height: 3),
-            Text('Choose Category', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+            Text('STEP 1 OF 2',
+                style: TextStyle(
+                    color: AppColors.primaryGreen,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2)),
+            SizedBox(height: 2),
+            Text('Choose Category',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           ],
         ),
         centerTitle: true,
@@ -91,12 +99,23 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(28, 24, 28, 10),
+              padding: EdgeInsets.fromLTRB(24, 8, 24, 6),
               child: Column(
                 children: [
-                  Text('What type of shop do you run?', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, height: 1.15, fontWeight: FontWeight.w900)),
-                  SizedBox(height: 14),
-                  Text('Swipe to explore categories. Your billing AI will be customized for your store.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: AppColors.textGrey, height: 1.35)),
+                  Text('What type of shop\ndo you run?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 24,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800)),
+                  SizedBox(height: 8),
+                  Text(
+                      'Swipe to explore categories. Your billing AI will be customized for your store.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textGrey,
+                          height: 1.3)),
                 ],
               ),
             ),
@@ -104,14 +123,19 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               child: PageView.builder(
                 controller: _pageController,
                 itemCount: _categories.length,
-                onPageChanged: (index) => setState(() => _selectedIndex = index),
-                itemBuilder: (context, index) => _CategoryCard(category: _categories[index], selected: index == _selectedIndex),
+                onPageChanged: (index) =>
+                    setState(() => _selectedIndex = index),
+                itemBuilder: (context, index) => _CategoryCard(
+                    category: _categories[index],
+                    selected: index == _selectedIndex),
               ),
             ),
-            _PageDots(selectedIndex: _selectedIndex, total: _categories.length),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
+            _PageDots(
+                selectedIndex: _selectedIndex, total: _categories.length),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 46,
+              height: 42,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
@@ -125,28 +149,46 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                     showCheckmark: false,
                     selectedColor: AppColors.primaryGreen,
                     backgroundColor: Colors.white,
-                    side: BorderSide(color: selected ? AppColors.primaryGreen : const Color(0xFFDDE3EA)),
-                    label: Text(item.name, style: TextStyle(fontWeight: FontWeight.w700, color: selected ? Colors.white : AppColors.textGrey)),
-                    avatar: Icon(item.icon, size: 18, color: selected ? Colors.white : AppColors.primaryGreen),
-                    onSelected: (_) => _pageController.animateToPage(index, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic),
+                    side: BorderSide(
+                        color: selected
+                            ? AppColors.primaryGreen
+                            : const Color(0xFFDDE3EA)),
+                    label: Text(item.name,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textGrey)),
+                    avatar: Icon(item.icon,
+                        size: 16,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.primaryGreen),
+                    onSelected: (_) => _pageController.animateToPage(index,
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutCubic),
                   );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(26, 20, 26, 18),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
               child: SizedBox(
                 width: double.infinity,
-                height: 58,
+                height: 52,
                 child: ElevatedButton.icon(
                   onPressed: _continue,
                   iconAlignment: IconAlignment.end,
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: Text('Continue as ${category.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                  label: Text('Continue as ${category.name}',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ),
@@ -167,15 +209,25 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedScale(
-      scale: selected ? 1 : .94,
+      scale: selected ? 1 : .95,
       duration: const Duration(milliseconds: 220),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(8, 22, 8, 8),
+        margin: const EdgeInsets.fromLTRB(4, 6, 4, 4),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: selected ? AppColors.primaryGreen : const Color(0xFFE1E7ED), width: selected ? 3 : 1),
-          boxShadow: [BoxShadow(color: AppColors.primaryGreen.withValues(alpha: selected ? .16 : .04), blurRadius: 24, offset: const Offset(0, 10))],
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+              color: selected
+                  ? AppColors.primaryGreen
+                  : const Color(0xFFE1E7ED),
+              width: selected ? 2.5 : 1),
+          boxShadow: [
+            BoxShadow(
+                color: AppColors.primaryGreen
+                    .withValues(alpha: selected ? .14 : .04),
+                blurRadius: 18,
+                offset: const Offset(0, 8))
+          ],
         ),
         child: Column(
           children: [
@@ -183,24 +235,62 @@ class _CategoryCard extends StatelessWidget {
               flex: 6,
               child: Stack(
                 children: [
-                  Container(decoration: BoxDecoration(color: category.accent, borderRadius: const BorderRadius.vertical(top: Radius.circular(24)))),
-                  Center(child: Image.asset(getShopCategoryImage(category.name), fit: BoxFit.contain, width: 205, height: 180)),
-                  Positioned(top: 16, left: 16, child: _Pill(icon: category.icon, label: category.tag)),
-                  if (selected) const Positioned(top: 16, right: 16, child: CircleAvatar(radius: 20, backgroundColor: AppColors.primaryGreen, child: Icon(Icons.check_rounded, color: Colors.white))),
+                  Container(
+                      decoration: BoxDecoration(
+                          color: category.accent,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(21)))),
+                  Center(
+                      child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Image.asset(getShopCategoryImage(category.name),
+                        fit: BoxFit.contain),
+                  )),
+                  Positioned(
+                      top: 10,
+                      left: 10,
+                      child: _Pill(icon: category.icon, label: category.tag)),
+                  if (selected)
+                    const Positioned(
+                        top: 10,
+                        right: 10,
+                        child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: AppColors.primaryGreen,
+                            child: Icon(Icons.check_rounded,
+                                color: Colors.white, size: 16))),
                 ],
               ),
             ),
             Expanded(
               flex: 4,
               child: Padding(
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(category.title, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 9),
-                    Text(category.description, style: const TextStyle(fontSize: 16, height: 1.35, color: AppColors.textGrey)),
+                    Text(
+                      category.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textBlack,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      category.description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: AppColors.textGrey,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),

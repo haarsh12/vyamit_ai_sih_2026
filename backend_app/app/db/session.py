@@ -73,14 +73,22 @@ async def get_agent_db_session() -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine(
         database_url,
         poolclass=NullPool,
+        pool_reset_on_return=None,
         connect_args={"command_timeout": 30, "statement_cache_size": 0},
     )
     factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    session = factory()
     try:
-        async with factory() as session:
-            yield session
+        yield session
     finally:
-        await engine.dispose()
+        try:
+            await session.close()
+        except Exception:
+            pass
+        try:
+            await engine.dispose()
+        except Exception:
+            pass
 
 
 async def database_is_ready(settings: Settings | None = None) -> bool:

@@ -104,6 +104,11 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         logger.info("agent_state", extra={"room": ctx.room.name, "session_id": str(tenant.session_id)})
         asyncio.create_task(_publish_ui_event(ctx, "agent_state", state=state))
 
+    @session.on("agent_speech_transcribed")
+    def agent_speech_transcribed(event: object) -> None:
+        transcript = _event_value(event, "transcript", "")
+        asyncio.create_task(_publish_ui_event(ctx, "agent_transcript", text=str(transcript)))
+
     @session.on("overlapping_speech")
     def overlapping_speech(_: object) -> None:
         asyncio.create_task(_publish_ui_event(ctx, "interruption"))

@@ -8,7 +8,7 @@ from livekit.agents import Agent, function_tool
 from sqlalchemy import or_, select
 
 from app.db.models import Customer, User
-from app.db.session import get_session_factory
+from app.db.session import get_agent_db_session
 from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
 from app.domain.doctor_prescriptions import format_dictation
@@ -41,10 +41,7 @@ class VyamitAssistant(Agent):
     async def get_shop_profile(self) -> dict[str, object]:
         """Get the active shop's public profile when the user asks about their shop details."""
 
-        factory = get_session_factory()
-        if factory is None:
-            return {"available": False}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             user = await session.get(User, self.tenant.owner_id)
             if user is None or not user.is_active:
                 return {"available": False}
@@ -57,10 +54,7 @@ class VyamitAssistant(Agent):
     async def search_inventory(self, query: str) -> dict[str, object]:
         """Search only this shop's active catalog by an item name, alias, or description."""
 
-        factory = get_session_factory()
-        if factory is None:
-            return {"matches": [], "message": "Catalog is temporarily unavailable."}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             matches = await inventory_search_service.search(session, self.tenant, query)
             return {
                 "matches": [match.to_tool_payload() for match in matches],
@@ -74,10 +68,7 @@ class VyamitAssistant(Agent):
         clean = query.strip()
         if not clean:
             return {"matches": []}
-        factory = get_session_factory()
-        if factory is None:
-            return {"matches": [], "message": "Customer data is temporarily unavailable."}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             rows = (await session.scalars(select(Customer).where(
                 Customer.owner_id == self.tenant.owner_id,
                 Customer.shop_category == self.tenant.shop_category,
@@ -93,20 +84,14 @@ class VyamitAssistant(Agent):
     async def get_sales_summary(self, days: int = 30) -> dict[str, object]:
         """Get aggregate sales totals for the current shop; accepts one to 3650 days."""
 
-        factory = get_session_factory()
-        if factory is None:
-            return {"available": False}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             return await analytics_service.overview(session, self.tenant, days=days)
 
     @function_tool()
     async def get_gst_configuration(self) -> dict[str, object]:
         """Get the current shop's GST readiness and configuration, when the user asks about it."""
 
-        factory = get_session_factory()
-        if factory is None:
-            return {"is_enabled": False, "verification_status": "unavailable"}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             return await gst_billing_service.get_configuration(session, self.tenant)
 
     @function_tool()
@@ -127,9 +112,6 @@ class VyamitAssistant(Agent):
 
         if self.tenant.shop_category == "Doctor Prescription":
             return {"created": False, "message": "Billing drafts are unavailable in doctor mode."}
-        factory = get_session_factory()
-        if factory is None:
-            return {"created": False, "message": "Billing is temporarily unavailable."}
         try:
             payload = BillCreate.model_validate({
                 "items": items,
@@ -140,7 +122,7 @@ class VyamitAssistant(Agent):
             })
         except ValueError:
             return {"created": False, "message": "The proposed bill has invalid totals or line items."}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             draft = await workflow_service.create_bill_draft(session, self.tenant, payload)
             result: dict[str, object] = {
                 "created": True,
@@ -183,10 +165,7 @@ class VyamitAssistant(Agent):
             return {"created": False, "message": "Inventory is unavailable in doctor mode."}
         if not text.strip() or len(text) > 2_000:
             return {"created": False, "message": "Inventory dictation must be between 1 and 2000 characters."}
-        factory = get_session_factory()
-        if factory is None:
-            return {"created": False, "message": "Inventory is temporarily unavailable."}
-        async with factory() as session:
+        async with get_agent_db_session() as session:
             items = await inventory_search_service.list_catalog(session, self.tenant)
         proposal = parse_inventory_dictation(
             text,
@@ -197,3 +176,4 @@ class VyamitAssistant(Agent):
         if self._on_inventory_draft_created is not None:
             await self._on_inventory_draft_created(proposal)
         return proposal
+

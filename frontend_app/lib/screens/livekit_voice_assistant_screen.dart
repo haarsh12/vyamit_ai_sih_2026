@@ -42,11 +42,13 @@ class _LiveKitVoiceAssistantScreenState
   bool _confirming = false;
   String _status = 'TAP TO START';
   String _transcript = '';
+  String _agentResponse = '';
   String? _shownDraftId;
 
   // Manual toggle state for Live Bill Box
   bool _isManualLiveBillOpen = false;
   bool _isEditMode = false;
+  bool _isGstEnabled = false;
 
   @override
   void initState() {
@@ -77,6 +79,7 @@ class _LiveKitVoiceAssistantScreenState
       _active = true;
       _status = 'CONNECTING';
       _transcript = '';
+      _agentResponse = '';
       _shownDraftId = null;
     });
     _pulse.repeat(reverse: true);
@@ -118,6 +121,10 @@ class _LiveKitVoiceAssistantScreenState
       case 'user_transcript':
         final text = event.payload['text']?.toString().trim() ?? '';
         if (text.isNotEmpty) setState(() => _transcript = text);
+        break;
+      case 'agent_transcript':
+        final text = event.payload['text']?.toString().trim() ?? '';
+        if (text.isNotEmpty) setState(() => _agentResponse = text);
         break;
       case 'agent_state':
         final state = event.payload['state']?.toString().trim();
@@ -349,6 +356,86 @@ class _LiveKitVoiceAssistantScreenState
     );
   }
 
+  void _showEditItemDialog(BuildContext context, BillProvider billProvider, int index) {
+    final item = billProvider.currentBillItems[index];
+    final nameController = TextEditingController(text: item['name']?.toString() ?? '');
+    final rateController = TextEditingController(text: _formatNumber((item['rate'] as num?)?.toDouble() ?? 0.0));
+    final qtyController = TextEditingController(text: (item['qty'] ?? 1).toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit_rounded, color: AppColors.primaryGreen, size: 22),
+            SizedBox(width: 8),
+            Text("Edit Line Item", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: "Item Name", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: rateController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: "Rate (₹)", border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: "Qty", border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = nameController.text.trim();
+              final newRate = double.tryParse(rateController.text) ?? 0.0;
+              final newQty = double.tryParse(qtyController.text) ?? 1.0;
+              if (newName.isNotEmpty && newQty > 0) {
+                billProvider.updateBillItem(index, {
+                  ...item,
+                  'name': newName,
+                  'rate': newRate,
+                  'qty': newQty,
+                  'qty_display': newQty == newQty.toInt() ? newQty.toInt().toString() : newQty.toString(),
+                  'total': newRate * newQty,
+                });
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Save Changes"),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatNumber(double value) {
     if (value == value.toInt()) {
       return value.toInt().toString();
@@ -516,27 +603,62 @@ class _LiveKitVoiceAssistantScreenState
                         style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.8, fontSize: 13),
                       ),
                       const SizedBox(height: 10),
-                      // Transcription Banner
+                      // Dual Transcription Banner (User + Vyamit AI)
                       Container(
                         width: double.infinity,
-                        constraints: const BoxConstraints(minHeight: 50, maxHeight: 70),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF7FAF6),
-                          borderRadius: BorderRadius.circular(12),
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
                         ),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            _transcript.isEmpty
-                                ? 'Tap the mic and speak naturally...'
-                                : _transcript,
-                            style: TextStyle(
-                              color: _transcript.isEmpty ? AppColors.textGrey : AppColors.textBlack,
-                              fontSize: 13,
-                              height: 1.3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.person_rounded, size: 15, color: AppColors.primaryGreen),
+                                const SizedBox(width: 6),
+                                const Text("You: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryGreen)),
+                                Expanded(
+                                  child: Text(
+                                    _transcript.isEmpty ? 'Tap the mic and speak naturally...' : _transcript,
+                                    style: TextStyle(
+                                      color: _transcript.isEmpty ? AppColors.textGrey : AppColors.textBlack,
+                                      fontSize: 12,
+                                      fontWeight: _transcript.isEmpty ? FontWeight.normal : FontWeight.w600,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.smart_toy_rounded, size: 15, color: Color(0xFF6366F1)),
+                                const SizedBox(width: 6),
+                                const Text("Vyamit AI: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF6366F1))),
+                                Expanded(
+                                  child: Text(
+                                    _agentResponse.isEmpty ? 'Listening for your voice orders...' : _agentResponse,
+                                    style: TextStyle(
+                                      color: _agentResponse.isEmpty ? AppColors.textGrey : AppColors.textBlack,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -564,31 +686,65 @@ class _LiveKitVoiceAssistantScreenState
                       ),
                       child: Column(
                         children: [
-                          // Live Bill Header
+                          // Live Bill Header with GST Toggle and Edit Controls
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                            padding: const EdgeInsets.fromLTRB(14, 10, 10, 6),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Row(
                                   children: [
                                     Icon(Icons.receipt_long, color: AppColors.primaryGreen, size: 20),
-                                    SizedBox(width: 8),
+                                    SizedBox(width: 6),
                                     Text("Live Bill Box",
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                   ],
                                 ),
                                 Row(
                                   children: [
+                                    // GST Toggle Chip
+                                    InkWell(
+                                      onTap: () => setState(() => _isGstEnabled = !_isGstEnabled),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: _isGstEnabled ? AppColors.primaryGreen.withOpacity(0.12) : const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: _isGstEnabled ? AppColors.primaryGreen : const Color(0xFFCBD5E1)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              "GST 18%",
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: _isGstEnabled ? AppColors.primaryGreen : AppColors.textGrey,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              _isGstEnabled ? Icons.check_circle_rounded : Icons.circle_outlined,
+                                              size: 13,
+                                              color: _isGstEnabled ? AppColors.primaryGreen : AppColors.textGrey,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
                                     IconButton(
-                                      icon: Icon(_isEditMode ? Icons.check : Icons.edit, size: 20),
+                                      icon: Icon(_isEditMode ? Icons.check_circle_rounded : Icons.edit_rounded,
+                                          size: 19, color: _isEditMode ? AppColors.primaryGreen : AppColors.textBlack),
                                       onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                                      tooltip: _isEditMode ? "Done Editing" : "Edit Bill Items",
                                     ),
                                     TextButton.icon(
                                       onPressed: () => _resetBill(billProvider),
-                                      icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                                      icon: const Icon(Icons.cancel_outlined, size: 15, color: Colors.red),
                                       label: const Text("Clear",
-                                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
                                     ),
                                   ],
                                 ),
@@ -602,7 +758,7 @@ class _LiveKitVoiceAssistantScreenState
                             child: Row(
                               children: [
                                 Expanded(flex: 4, child: Text("Item", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey))),
-                                Expanded(flex: 2, child: Text("Qty", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey))),
+                                Expanded(flex: 3, child: Text("Qty", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey))),
                                 Expanded(flex: 3, child: Text("Rate", textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey))),
                                 Expanded(flex: 3, child: Text("Total", textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey))),
                               ],
@@ -615,67 +771,109 @@ class _LiveKitVoiceAssistantScreenState
                             child: currentBill.isEmpty
                                 ? const Center(
                                     child: Text(
-                                      "No items in live bill.\nSpeak to add items or type below.",
+                                      "No items in live bill.\nSpeak to add items.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(color: Colors.grey, fontSize: 13),
                                     ),
                                   )
                                 : ListView.separated(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                     itemCount: currentBill.length,
-                                    separatorBuilder: (_, __) => const Divider(height: 12),
+                                    separatorBuilder: (_, __) => const Divider(height: 10),
                                     itemBuilder: (context, index) {
                                       final item = currentBill[index];
                                       final rate = (item['rate'] as num?)?.toDouble() ?? 0.0;
-                                      final total = (item['total'] as num?)?.toDouble() ?? (rate * 1);
-                                      final qtyDisplay = item['qty_display']?.toString() ?? '${item['qty'] ?? 1}';
+                                      final qty = (item['qty'] as num?)?.toDouble() ?? 1.0;
+                                      final total = (item['total'] as num?)?.toDouble() ?? (rate * qty);
+                                      final qtyDisplay = item['qty_display']?.toString() ?? '${_formatNumber(qty)}';
 
-                                      return Row(
-                                        children: [
-                                          if (_isEditMode)
-                                            GestureDetector(
-                                              onTap: () => billProvider.removeBillItem(index),
-                                              child: Container(
-                                                margin: const EdgeInsets.only(right: 8),
-                                                padding: const EdgeInsets.all(2),
-                                                decoration: const BoxDecoration(color: Color(0xFFFFEBEB), shape: BoxShape.circle),
-                                                child: const Icon(Icons.remove, size: 14, color: Colors.red),
+                                      return InkWell(
+                                        onTap: _isEditMode ? () => _showEditItemDialog(context, billProvider, index) : null,
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            children: [
+                                              if (_isEditMode)
+                                                GestureDetector(
+                                                  onTap: () => billProvider.removeBillItem(index),
+                                                  child: Container(
+                                                    margin: const EdgeInsets.only(right: 6),
+                                                    padding: const EdgeInsets.all(2),
+                                                    decoration: const BoxDecoration(color: Color(0xFFFFEBEB), shape: BoxShape.circle),
+                                                    child: const Icon(Icons.remove_rounded, size: 14, color: Colors.red),
+                                                  ),
+                                                ),
+                                              Expanded(
+                                                flex: 4,
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        item['name']?.toString() ?? 'Item',
+                                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    if (_isEditMode)
+                                                      const Icon(Icons.edit_outlined, size: 13, color: AppColors.primaryGreen),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text(
-                                              item['name']?.toString() ?? 'Item',
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                              Expanded(
+                                                flex: 3,
+                                                child: _isEditMode
+                                                    ? Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          GestureDetector(
+                                                            onTap: () => billProvider.updateBillItemQuantity(index, qty - 1),
+                                                            child: Container(
+                                                              padding: const EdgeInsets.all(2),
+                                                              decoration: BoxDecoration(color: Colors.grey[200], shape: BoxShape.circle),
+                                                              child: const Icon(Icons.remove, size: 12),
+                                                            ),
+                                                          ),
+                                                          Padding(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                            child: Text(_formatNumber(qty), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                                          ),
+                                                          GestureDetector(
+                                                            onTap: () => billProvider.updateBillItemQuantity(index, qty + 1),
+                                                            child: Container(
+                                                              padding: const EdgeInsets.all(2),
+                                                              decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.2), shape: BoxShape.circle),
+                                                              child: const Icon(Icons.add, size: 12, color: AppColors.primaryGreen),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      )
+                                                    : Text(
+                                                        qtyDisplay,
+                                                        textAlign: TextAlign.center,
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                              ),
+                                              Expanded(
+                                                flex: 3,
+                                                child: Text(
+                                                  "₹${_formatNumber(rate)}",
+                                                  textAlign: TextAlign.right,
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 3,
+                                                child: Text(
+                                                  "₹${_formatNumber(total)}",
+                                                  textAlign: TextAlign.right,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              qtyDisplay,
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              "₹${_formatNumber(rate)}",
-                                              textAlign: TextAlign.right,
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              "₹${_formatNumber(total)}",
-                                              textAlign: TextAlign.right,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       );
                                     },
                                   ),
@@ -690,13 +888,33 @@ class _LiveKitVoiceAssistantScreenState
                             ),
                             child: Column(
                               children: [
+                                if (_isGstEnabled) ...[
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Subtotal", style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                                      Text("₹${_formatNumber(billProvider.billTotal)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("GST (18%)", style: TextStyle(fontSize: 11, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
+                                      Text("₹${_formatNumber(billProvider.billTotal * 0.18)}",
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text("TOTAL AMOUNT", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                    Text(_isGstEnabled ? "GRAND TOTAL" : "TOTAL AMOUNT",
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                                     Text(
-                                      "₹${_formatNumber(billProvider.billTotal)}",
-                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+                                      "₹${_formatNumber(billProvider.billTotal * (_isGstEnabled ? 1.18 : 1.0))}",
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textBlack),
                                     ),
                                   ],
                                 ),
