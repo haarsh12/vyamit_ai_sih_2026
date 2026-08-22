@@ -8,6 +8,7 @@ class Item {
   final double gstRate;
   final String? hsnCode;
   final String? taxCategory;
+  final String? imageUrl;
 
   Item({
     required this.id,
@@ -19,6 +20,7 @@ class Item {
     this.gstRate = 0,
     this.hsnCode,
     this.taxCategory,
+    this.imageUrl,
   });
 
   // Convert JSON from Backend -> Flutter Object
@@ -38,6 +40,7 @@ class Item {
       gstRate: _asDouble(json['gst_rate']),
       hsnCode: json['hsn_code']?.toString(),
       taxCategory: json['tax_category']?.toString(),
+      imageUrl: json['image_url']?.toString() ?? json['imageUrl']?.toString(),
     );
   }
 
@@ -58,6 +61,8 @@ class Item {
       if (hsnCode != null && hsnCode!.isNotEmpty) 'hsn_code': hsnCode,
       if (taxCategory != null && taxCategory!.isNotEmpty)
         'tax_category': taxCategory,
+      if (imageUrl != null && imageUrl!.isNotEmpty) 'image_url': imageUrl,
     };
   }
 }
+

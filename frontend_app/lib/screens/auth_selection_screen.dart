@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import 'login_screen.dart';
 import 'registration_screen.dart';
+import 'category_selection_screen.dart';
 
 class AuthSelectionScreen extends StatelessWidget {
   const AuthSelectionScreen({super.key});
@@ -56,7 +57,7 @@ class AuthSelectionScreen extends StatelessWidget {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const RegistrationScreen()));
+                            builder: (context) => const CategorySelectionScreen()));
                   },
                   child: const Text("Create New Account",
                       style: TextStyle(

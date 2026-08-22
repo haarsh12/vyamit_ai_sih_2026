@@ -5,7 +5,8 @@ import '../providers/auth_provider.dart';
 import 'otp_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+  final String? initialShopCategory;
+  const RegistrationScreen({super.key, this.initialShopCategory});
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -18,6 +19,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
   String? _selectedShopCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialShopCategory != null &&
+        widget.initialShopCategory!.isNotEmpty) {
+      _selectedShopCategory = widget.initialShopCategory;
+    }
+  }
 
   void _checkUserAndSendOtp() async {
     String phone = _phoneController.text.trim();
