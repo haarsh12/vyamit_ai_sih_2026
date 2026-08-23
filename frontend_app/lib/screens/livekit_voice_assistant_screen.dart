@@ -40,11 +40,13 @@ class _LiveKitVoiceAssistantScreenState
 
   // Session & Voice state
   bool _isSessionActive = false;
-  String _sessionState = "IDLE"; // IDLE, LISTENING, PROCESSING, SPEAKING
+  String _sessionState = "IDLE"; // IDLE, INITIALIZING, SETUP, READY, LISTENING, THINKING, TOOL_EXECUTING, SPEAKING
+  String _stateLabel = "Tap to Start";
   String _transcript = "";
   String _agentResponse = "Tap to Start";
   double _audioLevel = 0.0;
   Timer? _audioLevelTimer;
+  double _startupTimeMs = 0.0;
 
   // Edit Mode & Live Bill State
   bool _isEditMode = false;
@@ -80,10 +82,11 @@ class _LiveKitVoiceAssistantScreenState
   Future<void> _startContinuousSession() async {
     setState(() {
       _isSessionActive = true;
-      _sessionState = "LISTENING";
+      _sessionState = "INITIALIZING";
+      _stateLabel = "Initializing";
       _transcript = "";
-      _agentResponse = "Listening...";
-      _audioLevel = 0.3;
+      _agentResponse = "Setting up voice session...";
+      _audioLevel = 0.2;
     });
 
     _startAudioLevelAnimation();
@@ -96,6 +99,7 @@ class _LiveKitVoiceAssistantScreenState
       setState(() {
         _isSessionActive = false;
         _sessionState = "IDLE";
+        _stateLabel = "Offline";
         _agentResponse = "Voice connection error";
         _audioLevel = 0.0;
       });
@@ -116,9 +120,11 @@ class _LiveKitVoiceAssistantScreenState
     setState(() {
       _isSessionActive = false;
       _sessionState = "IDLE";
+      _stateLabel = "Offline";
       _transcript = "";
       _agentResponse = "Tap to Start";
       _audioLevel = 0.0;
+      _startupTimeMs = 0.0;
     });
   }
 
@@ -134,14 +140,32 @@ class _LiveKitVoiceAssistantScreenState
         }
         tick++;
         setState(() {
-          if (_sessionState == "SPEAKING") {
-            _audioLevel = 0.5 + (0.4 * (tick % 10) / 10);
-          } else if (_sessionState == "PROCESSING") {
-            _audioLevel = 0.4 + (0.2 * (tick % 10) / 10);
-          } else if (_transcript.isNotEmpty) {
-            _audioLevel = 0.6 + (0.4 * (tick % 10) / 10);
-          } else {
-            _audioLevel = 0.3 + (0.2 * (tick % 10) / 10);
+          switch (_sessionState) {
+            case "INITIALIZING":
+            case "SETUP":
+              _audioLevel = 0.2 + (0.15 * (tick % 10) / 10);
+              break;
+            case "READY":
+              _audioLevel = 0.4 + (0.1 * (tick % 10) / 10);
+              break;
+            case "LISTENING":
+              if (_transcript.isNotEmpty) {
+                _audioLevel = 0.6 + (0.4 * (tick % 10) / 10);
+              } else {
+                _audioLevel = 0.3 + (0.2 * (tick % 10) / 10);
+              }
+              break;
+            case "THINKING":
+              _audioLevel = 0.4 + (0.25 * (tick % 10) / 10);
+              break;
+            case "TOOL_EXECUTING":
+              _audioLevel = 0.45 + (0.3 * (tick % 10) / 10);
+              break;
+            case "SPEAKING":
+              _audioLevel = 0.5 + (0.4 * (tick % 10) / 10);
+              break;
+            default:
+              _audioLevel = 0.3 + (0.2 * (tick % 10) / 10);
           }
         });
       },
@@ -150,15 +174,62 @@ class _LiveKitVoiceAssistantScreenState
 
   void _handleVoiceEvent(VoiceUiEvent event) {
     if (!mounted) return;
+    
+    debugPrint('🎤 VOICE EVENT: ${event.type}');
+    
     switch (event.type) {
-      case 'connected':
+      case 'initializing':
+        setState(() {
+          _sessionState = "INITIALIZING";
+          _stateLabel = "Initializing";
+          _agentResponse = event.payload['message']?.toString() ?? "Setting up...";
+        });
+        break;
+      
+      case 'setup':
+        setState(() {
+          _sessionState = "SETUP";
+          _stateLabel = "Setting up";
+          _agentResponse = event.payload['message']?.toString() ?? "Preparing voice agent...";
+        });
+        break;
+
+      case 'ready':
+        final startupTime = event.payload['startup_time_ms'];
         setState(() {
           _isSessionActive = true;
-          _sessionState = "LISTENING";
-          if (_agentResponse == "Tap to Start") {
-            _agentResponse = "Listening...";
+          _sessionState = "READY";
+          _stateLabel = "Ready";
+          _agentResponse = "Ready to listen";
+          if (startupTime != null) {
+            _startupTimeMs = (startupTime is num) ? startupTime.toDouble() : 0.0;
           }
         });
+        debugPrint('🎉 VOICE: Session ready in ${_startupTimeMs}ms');
+        // Transition to listening after a brief moment
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _sessionState == "READY") {
+            setState(() {
+              _sessionState = "LISTENING";
+              _stateLabel = "Listening";
+              _agentResponse = "Listening...";
+            });
+          }
+        });
+        break;
+
+      case 'connected':
+        // Legacy event, treat as ready if not already handled
+        if (_sessionState == "INITIALIZING" || _sessionState == "SETUP") {
+          setState(() {
+            _isSessionActive = true;
+            _sessionState = "LISTENING";
+            _stateLabel = "Listening";
+            if (_agentResponse == "Setting up..." || _agentResponse == "Preparing voice agent...") {
+              _agentResponse = "Listening...";
+            }
+          });
+        }
         break;
 
       case 'user_transcript':
@@ -181,22 +252,50 @@ class _LiveKitVoiceAssistantScreenState
         break;
 
       case 'agent_state':
-        final rawState = event.payload['state']?.toString().toLowerCase() ?? '';
+        final state = event.payload['state']?.toString().toLowerCase() ?? '';
+        final label = event.payload['label']?.toString() ?? '';
         setState(() {
-          if (rawState.contains('speaking')) {
-            _sessionState = "SPEAKING";
-          } else if (rawState.contains('thinking') || rawState.contains('processing')) {
-            _sessionState = "PROCESSING";
+          if (state.contains('listening')) {
+            _sessionState = "LISTENING";
+            _stateLabel = label.isNotEmpty ? label : "Listening";
+            if (_agentResponse == "Thinking..." || _agentResponse == "AI Speaking...") {
+              _agentResponse = "Listening...";
+            }
+          } else if (state.contains('thinking') || state.contains('processing')) {
+            _sessionState = "THINKING";
+            _stateLabel = label.isNotEmpty ? label : "Thinking";
             if (_agentResponse == "Listening...") {
               _agentResponse = "Thinking...";
             }
+          } else if (state.contains('speaking')) {
+            _sessionState = "SPEAKING";
+            _stateLabel = label.isNotEmpty ? label : "AI Speaking";
           } else {
-            _sessionState = "LISTENING";
-            if (_agentResponse == "Thinking...") {
-              _agentResponse = "Listening...";
-            }
+            _sessionState = state.toUpperCase();
+            _stateLabel = label.isNotEmpty ? label : state;
           }
         });
+        break;
+      
+      case 'tool_executing':
+        final toolName = event.payload['tool']?.toString() ?? 'tool';
+        setState(() {
+          _sessionState = "TOOL_EXECUTING";
+          _stateLabel = "Executing";
+          _agentResponse = "Searching inventory...";
+        });
+        break;
+
+      case 'interruption':
+        debugPrint('🚫 VOICE: User interrupted agent');
+        setState(() {
+          _sessionState = "LISTENING";
+          _stateLabel = "Listening";
+        });
+        break;
+      
+      case 'speech_interrupted':
+        debugPrint('⏹️ VOICE: Agent speech stopped');
         break;
 
       case 'bill_draft':
@@ -253,6 +352,7 @@ class _LiveKitVoiceAssistantScreenState
       case 'error':
         setState(() {
           _sessionState = "IDLE";
+          _stateLabel = "Error";
           _agentResponse = "Voice Error";
         });
         break;
@@ -520,10 +620,24 @@ class _LiveKitVoiceAssistantScreenState
 
   String _getDisplayText() {
     if (_transcript.isNotEmpty) return _transcript;
-    if (_sessionState == "LISTENING") return "Listening...";
-    if (_sessionState == "PROCESSING") return "Processing speech...";
-    if (_sessionState == "SPEAKING") return "Vyamit AI Speaking...";
-    return "Tap to Start Call Session";
+    switch (_sessionState) {
+      case "INITIALIZING":
+        return "Initializing voice session...";
+      case "SETUP":
+        return "Setting up providers...";
+      case "READY":
+        return "Session ready!";
+      case "LISTENING":
+        return "Listening...";
+      case "THINKING":
+        return "Processing speech...";
+      case "TOOL_EXECUTING":
+        return "Searching...";
+      case "SPEAKING":
+        return "Vyamit AI Speaking...";
+      default:
+        return "Tap to Start Call Session";
+    }
   }
 
   String _getTimeBasedGreeting() {
@@ -549,6 +663,49 @@ class _LiveKitVoiceAssistantScreenState
       return shop;
     }
     return 'Owner';
+  }
+
+  // Get color based on session state
+  Color _getStatusColor(String state) {
+    switch (state) {
+      case "INITIALIZING":
+        return Colors.orange;
+      case "SETUP":
+        return Colors.orange.shade700;
+      case "READY":
+        return Colors.green.shade400;
+      case "LISTENING":
+        return Colors.green;
+      case "THINKING":
+        return Colors.purple;
+      case "TOOL_EXECUTING":
+        return Colors.amber.shade700;
+      case "SPEAKING":
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Get icon based on session state
+  IconData _getStatusIcon(String state) {
+    switch (state) {
+      case "INITIALIZING":
+      case "SETUP":
+        return Icons.settings;
+      case "READY":
+        return Icons.check_circle;
+      case "LISTENING":
+        return Icons.graphic_eq;
+      case "THINKING":
+        return Icons.psychology;
+      case "TOOL_EXECUTING":
+        return Icons.search;
+      case "SPEAKING":
+        return Icons.volume_up;
+      default:
+        return Icons.mic;
+    }
   }
 
   Widget _buildGreetingView(BuildContext context) {
@@ -657,13 +814,11 @@ class _LiveKitVoiceAssistantScreenState
   @override
   Widget build(BuildContext context) {
     final gstProvider = context.watch<GstProvider>();
+    
+    // Enhanced status colors based on current state
     final statusColor = !_isSessionActive
         ? Colors.grey
-        : (_sessionState == "LISTENING"
-            ? Colors.green
-            : (_sessionState == "PROCESSING"
-                ? Colors.blue
-                : Colors.teal));
+        : _getStatusColor(_sessionState);
 
     return Consumer<BillProvider>(
       builder: (context, billProvider, child) {
@@ -806,11 +961,7 @@ class _LiveKitVoiceAssistantScreenState
                                       child: Icon(
                                         !_isSessionActive
                                             ? Icons.mic
-                                            : (_sessionState == "LISTENING"
-                                                ? Icons.graphic_eq
-                                                : (_sessionState == "PROCESSING"
-                                                    ? Icons.insights
-                                                    : Icons.volume_up)),
+                                            : _getStatusIcon(_sessionState),
                                         size: 50,
                                         color: _isSessionActive
                                             ? Colors.white
@@ -850,17 +1001,11 @@ class _LiveKitVoiceAssistantScreenState
                                   Text(
                                     !_isSessionActive
                                         ? 'Offline'
-                                        : (_sessionState == "LISTENING"
-                                            ? 'Listening...'
-                                            : (_sessionState == "PROCESSING"
-                                                ? 'Thinking...'
-                                                : 'AI Speaking...')),
+                                        : _stateLabel,
                                     style: TextStyle(
                                       color: !_isSessionActive
                                           ? Colors.grey.shade700
-                                          : (statusColor is MaterialColor
-                                              ? statusColor.shade700
-                                              : statusColor),
+                                          : statusColor.withOpacity(0.9),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),

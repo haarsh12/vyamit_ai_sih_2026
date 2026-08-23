@@ -26,7 +26,7 @@ def create_stt(settings: Settings) -> google.STT:
 
 
 def create_llm(settings: Settings) -> google.LLM:
-    """Create Gemini LLM directly without fallback adapter for faster responses."""
+    """Create Gemini LLM optimized for ultra-low latency voice responses."""
     
     authentication = load_vertex_authentication(settings)
     return google.LLM(
@@ -35,18 +35,23 @@ def create_llm(settings: Settings) -> google.LLM:
         project=authentication.project_id,
         location=settings.google_cloud_location,
         credentials=authentication.credentials,
-        temperature=0.3,  # Slightly higher for more natural responses
+        temperature=0.2,  # Lower temperature for faster, more deterministic responses
         http_options=HttpOptions(api_version="v1"),
+        # Streaming configuration for faster perceived response time
+        max_output_tokens=256,  # Limit output for faster voice responses
+        top_p=0.95,
+        top_k=40,
     )
 
 
 def create_tts(settings: Settings) -> cartesia.TTS:
-    """Create Cartesia TTS with dynamic language support."""
+    """Create Cartesia TTS optimized for minimal latency."""
     
     return cartesia.TTS(
         model=settings.cartesia_tts_model,
         voice=settings.cartesia_voice_id,
         api_key=settings.cartesia_api_key.get_secret_value(),
         language="en",  # Will be updated dynamically based on detected speech language
-        speed=1.1,  # Slightly faster for more responsive feel
+        speed=1.15,  # Slightly faster for more responsive feel
+        # Cartesia's default settings already optimize for low latency
     )
