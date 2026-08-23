@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 import 'api_client.dart';
@@ -103,15 +104,29 @@ class LiveKitVoiceService {
   }
 
   void _onDataReceived(DataReceivedEvent event) {
-    if (event.topic != 'vyamit.ui') return;
+    debugPrint('🔌 LIVEKIT: DataReceived event on topic: ${event.topic}');
+    if (event.topic != 'vyamit.ui') {
+      debugPrint('🔌 LIVEKIT: Ignoring non-vyamit.ui topic');
+      return;
+    }
     try {
       final decoded = jsonDecode(utf8.decode(event.data));
-      if (decoded is! Map) return;
+      debugPrint('🔌 LIVEKIT: Decoded data: $decoded');
+      if (decoded is! Map) {
+        debugPrint('🔌 LIVEKIT: Decoded data is not a Map');
+        return;
+      }
       final payload = Map<String, dynamic>.from(decoded);
       final type = payload.remove('type')?.toString();
-      if (type == null || type.isEmpty) return;
+      debugPrint('🔌 LIVEKIT: Event type: $type');
+      if (type == null || type.isEmpty) {
+        debugPrint('🔌 LIVEKIT: Event type is null or empty');
+        return;
+      }
+      debugPrint('🔌 LIVEKIT: Publishing VoiceUiEvent with type=$type, payload keys=${payload.keys.toList()}');
       _uiEvents.add(VoiceUiEvent(type, payload));
-    } on FormatException {
+    } on FormatException catch (e) {
+      debugPrint('🔌 LIVEKIT: FormatException while parsing data: $e');
       // Ignore malformed data instead of allowing a remote participant to
       // crash the voice UI. The server publishes only this namespaced topic.
     }

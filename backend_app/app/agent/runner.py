@@ -1,4 +1,4 @@
-"""Independently deployed LiveKit AgentServer for Vyamit realtime conversations."""
+"""Optimized LiveKit AgentServer for fast, responsive voice interactions."""
 
 from __future__ import annotations
 
@@ -35,73 +35,90 @@ def _event_value(event: object, name: str, default: Any = None) -> Any:
 
 async def _publish_ui_event(ctx: JobContext, event_type: str, **payload: object) -> None:
     """Publish minimal state for Flutter UI; never publish credentials or raw tool input."""
-
-    await ctx.room.local_participant.publish_data(
-        json.dumps({"type": event_type, **payload}, separators=(",", ":")).encode("utf-8"),
-        reliable=True,
-        topic="vyamit.ui",
-    )
+    try:
+        event_data = {"type": event_type, **payload}
+        logger.debug(f"📤 Publishing {event_type} event with keys: {list(payload.keys())}")
+        await ctx.room.local_participant.publish_data(
+            json.dumps(event_data, separators=(",", ":")).encode("utf-8"),
+            reliable=True,
+            topic="vyamit.ui",
+        )
+        logger.info(f"✅ Published {event_type} event successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to publish UI event {event_type}: {e}", exc_info=True)
 
 
 @server.rtc_session(agent_name=get_settings().livekit_agent_name)
 async def vyamit_voice_agent(ctx: JobContext) -> None:
-    """Join a room only after resolving its server-created tenant binding."""
+    """Optimized session startup for minimal latency."""
 
     settings = get_settings()
     settings.require_agent_providers()
-    await ctx.connect()
-    async with get_agent_db_session() as db_session:
-        expected_identity = await VoiceSessionRepository(db_session).expected_participant_identity(ctx.room.name)
-    if expected_identity is None:
-        logger.warning("agent_rejected_unbound_room", extra={"room": ctx.room.name})
-        # Python JobContext.shutdown is non-awaitable; no AgentSession has
-        # started yet, so it is the correct lifecycle primitive here.
-        ctx.shutdown(reason="A valid Vyamit voice session is required.")
-        return
-    try:
-        # A room name alone is not enough.  The agent waits for exactly the
-        # identity minted alongside the token; a different participant cannot
-        # borrow a live room to access this tenant's tools.
-        participant = await asyncio.wait_for(
-            ctx.wait_for_participant(identity=expected_identity), timeout=15.0
-        )
-    except TimeoutError:
-        logger.warning("agent_rejected_missing_bound_participant", extra={"room": ctx.room.name})
-        ctx.shutdown(reason="The authenticated participant did not join in time.")
-        return
-    async with get_agent_db_session() as db_session:
-        tenant = await VoiceSessionRepository(db_session).resolve_tenant(
-            ctx.room.name, participant.identity
-        )
-        await db_session.commit()
-    if tenant is None:
-        logger.warning("agent_rejected_invalid_participant", extra={"room": ctx.room.name})
-        ctx.shutdown(reason="A valid Vyamit voice session is required.")
-        return
-    ctx.log_context_fields = {"room": ctx.room.name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id}
+    
+    # Get room name early for logging
+    room_name = ctx.room.name
+    ctx.log_context_fields = {"room": room_name}
+    
+    # Verify session authorization asynchronously while setting up audio
+    async def verify_session():
+        async with get_agent_db_session() as db_session:
+            expected_identity = await VoiceSessionRepository(db_session).expected_participant_identity(room_name)
+        if expected_identity is None:
+            logger.warning("agent_rejected_unbound_room", extra={"room": room_name})
+            return None, None
+        
+        try:
+            participant = await asyncio.wait_for(
+                ctx.wait_for_participant(identity=expected_identity), timeout=15.0
+            )
+        except TimeoutError:
+            logger.warning("agent_rejected_missing_bound_participant", extra={"room": room_name})
+            return None, None
+        
+        async with get_agent_db_session() as db_session:
+            tenant = await VoiceSessionRepository(db_session).resolve_tenant(room_name, participant.identity)
+            await db_session.commit()
+        
+        if tenant is None:
+            logger.warning("agent_rejected_invalid_participant", extra={"room": room_name})
+            return None, None
+        
+        return tenant, participant
+    
+    # Setup room options
     room_options = room_io.RoomOptions()
     if settings.enable_enhanced_noise_cancellation:
         room_options = room_io.RoomOptions(audio_input=room_io.AudioInputOptions(
             noise_cancellation=ai_coustics.audio_enhancement(model=ai_coustics.EnhancerModel.QUAIL_VF_S)
         ))
+    
+    # Create session with minimal setup
     session = AgentSession(
-        stt=create_stt(settings), llm=create_llm(settings), tts=create_tts(settings),
+        stt=create_stt(settings),
+        llm=create_llm(settings),
+        tts=create_tts(settings),
         turn_handling=TurnHandlingOptions(turn_detection=inference.TurnDetector()),
-        preemptive_generation=True, use_tts_aligned_transcript=True,
+        preemptive_generation=True,
+        use_tts_aligned_transcript=True,
     )
-
+    
+    # Event handlers (lightweight, no await in handlers)
     @session.on("user_input_transcribed")
     def user_input_transcribed(event: object) -> None:
-        language, final, transcript = _event_value(event, "language"), bool(_event_value(event, "is_final", False)), _event_value(event, "transcript", "")
-        logger.info("stt_transcript", extra={"room": ctx.room.name, "session_id": str(tenant.session_id), "latency_ms": None})
+        language = _event_value(event, "language")
+        final = bool(_event_value(event, "is_final", False))
+        transcript = _event_value(event, "transcript", "")
+        
+        # Update TTS language for next utterance
         if final and language in {"en", "hi", "mr"}:
             session.tts.update_options(language=language)
+        
+        # Async publish to UI
         asyncio.create_task(_publish_ui_event(ctx, "user_transcript", text=str(transcript), final=final, language=language))
 
     @session.on("agent_state_changed")
     def agent_state_changed(event: object) -> None:
         state = _event_value(event, "state", "unknown")
-        logger.info("agent_state", extra={"room": ctx.room.name, "session_id": str(tenant.session_id)})
         asyncio.create_task(_publish_ui_event(ctx, "agent_state", state=state))
 
     @session.on("agent_speech_transcribed")
@@ -111,18 +128,40 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
 
     @session.on("overlapping_speech")
     def overlapping_speech(_: object) -> None:
+        logger.debug("interruption_detected")
         asyncio.create_task(_publish_ui_event(ctx, "interruption"))
 
+    # Verify session authorization
+    tenant, participant = await verify_session()
+    if tenant is None:
+        ctx.shutdown(reason="Invalid voice session")
+        return
+    
+    # Update context with tenant info
+    ctx.log_context_fields.update({"session_id": str(tenant.session_id), "owner_id": tenant.owner_id})
+    
+    # Callback handlers for tool results
+    async def on_bill_draft(draft: dict[str, object]) -> None:
+        logger.info(f"💰 Bill draft created: {draft.get('draft_id')}")
+        await _publish_ui_event(ctx, "bill_draft", **draft)
+    
+    async def on_prescription_draft(draft: dict[str, object]) -> None:
+        logger.info(f"📋 Prescription draft created")
+        await _publish_ui_event(ctx, "prescription_draft", **draft)
+    
+    async def on_inventory_draft(draft: dict[str, object]) -> None:
+        logger.info(f"📦 Inventory draft created")
+        await _publish_ui_event(ctx, "inventory_draft", **draft)
+    
+    # Cleanup callback
     async def close_database_session() -> None:
-        """Run after the LiveKit job/session has actually ended, not after start()."""
-
         async with get_agent_db_session() as db_session:
             await VoiceSessionRepository(db_session).close(tenant.session_id)
             await db_session.commit()
-
-    # AgentSession.start() configures long-lived I/O then returns.  The job
-    # shutdown callback is therefore the lifecycle boundary for DB cleanup.
+    
     ctx.add_shutdown_callback(close_database_session)
+    
+    # Start session BEFORE connecting to reduce latency
     await session.start(
         agent=VyamitAssistant(
             instructions=(
@@ -131,21 +170,21 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
                 else VOICE_ASSISTANT_INSTRUCTIONS
             ),
             tenant=tenant,
-            on_bill_draft_created=lambda draft: _publish_ui_event(ctx, "bill_draft", **draft),
-            on_prescription_draft_created=lambda draft: _publish_ui_event(
-                ctx, "prescription_draft", **draft
-            ),
-            on_inventory_draft_created=lambda draft: _publish_ui_event(
-                ctx, "inventory_draft", **draft
-            ),
+            on_bill_draft_created=on_bill_draft,
+            on_prescription_draft_created=on_prescription_draft,
+            on_inventory_draft_created=on_inventory_draft,
         ),
         room=ctx.room,
         room_options=room_options,
     )
+    
+    # Connect AFTER session is ready
+    await ctx.connect()
     await _publish_ui_event(ctx, "connected", session_id=str(tenant.session_id))
+    
     logger.info(
-        "agent_session_started",
-        extra={"room": ctx.room.name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id},
+        "session_started",
+        extra={"room": room_name, "session_id": str(tenant.session_id), "owner_id": tenant.owner_id},
     )
 
 

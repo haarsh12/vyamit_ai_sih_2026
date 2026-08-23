@@ -200,10 +200,13 @@ class _LiveKitVoiceAssistantScreenState
         break;
 
       case 'bill_draft':
+        debugPrint('🎤 VOICE: Received bill_draft event');
         if (event.payload['state'] != null &&
             event.payload['state']['items'] != null) {
           final rawItems = event.payload['state']['items'];
+          debugPrint('🎤 VOICE: Raw items: $rawItems');
           if (rawItems is List) {
+            debugPrint('🎤 VOICE: Processing ${rawItems.length} items');
             final billItems = rawItems.map((item) {
               final map = Map<String, dynamic>.from(item as Map);
               final qty = map['quantity'] ?? map['qty'] ?? 1;
@@ -212,7 +215,7 @@ class _LiveKitVoiceAssistantScreenState
               final unit = map['unit']?.toString() ?? 'kg';
               var qtyDisplay = map['qty_display']?.toString() ?? '${_formatNumber(_asDouble(qty))}$unit';
 
-              return <String, dynamic>{
+              final processedItem = <String, dynamic>{
                 'name': map['name']?.toString() ?? 'Item',
                 'en': map['name']?.toString() ?? 'Item',
                 'hi': map['name']?.toString() ?? 'Item',
@@ -223,11 +226,21 @@ class _LiveKitVoiceAssistantScreenState
                 'unit': unit,
                 'gst_rate': _asDouble(map['gst_rate']),
               };
+              debugPrint('🎤 VOICE: Processed item: ${processedItem['name']} x ${processedItem['qty']} @ ₹${processedItem['rate']} = ₹${processedItem['total']}');
+              return processedItem;
             }).toList();
 
             final billProvider = Provider.of<BillProvider>(context, listen: false);
-            billProvider.updateBillItems(billItems);
+            debugPrint('🎤 VOICE: Current bill has ${billProvider.currentBillItems.length} items');
+            debugPrint('🎤 VOICE: Adding ${billItems.length} new items to bill');
+            
+            // ADD items instead of REPLACING them
+            billProvider.addBillItems(billItems);
+            
+            debugPrint('🎤 VOICE: Bill now has ${billProvider.currentBillItems.length} items');
           }
+        } else {
+          debugPrint('🎤 VOICE: bill_draft event missing state or items');
         }
         break;
 

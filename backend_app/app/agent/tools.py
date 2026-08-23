@@ -52,14 +52,36 @@ class VyamitAssistant(Agent):
 
     @function_tool()
     async def search_inventory(self, query: str) -> dict[str, object]:
-        """Search only this shop's active catalog by an item name, alias, or description."""
+        """Search only this shop's active catalog by an item name, alias, or description.
+        
+        Returns a dict with:
+        - "matches": list of matching items (empty list if no matches)
+        - "catalog_has_quantity_tracking": boolean
+        
+        If matches list is non-empty, the items ARE in inventory.
+        If matches list is empty, the items are NOT in inventory.
+        """
 
+        import logging
+        logger = logging.getLogger("vyamit.agent.tools")
+        
         async with get_agent_db_session() as session:
             matches = await inventory_search_service.search(session, self.tenant, query)
-            return {
+            result = {
                 "matches": [match.to_tool_payload() for match in matches],
                 "catalog_has_quantity_tracking": False,
             }
+            logger.info(
+                "search_inventory_result",
+                extra={
+                    "query": query,
+                    "matches_count": len(matches),
+                    "result": result,
+                    "owner_id": self.tenant.owner_id,
+                    "shop_category": self.tenant.shop_category,
+                }
+            )
+            return result
 
     @function_tool()
     async def find_customer(self, query: str) -> dict[str, object]:
@@ -98,31 +120,101 @@ class VyamitAssistant(Agent):
     async def create_bill_draft(
         self,
         items: list[dict[str, object]],
-        total_amount: float,
+        total_amount: float = 0.0,
         customer_phone: str | None = None,
         customer_name: str | None = None,
         payment_method: str = "cash",
     ) -> dict[str, object]:
-        """Create an editable bill draft after confirming each item, quantity, and price.
+        """Create or update an editable bill draft directly in the mobile app's Live Bill Box.
 
-        This never saves a bill. The mobile app must display the returned draft
-        and call its separate confirmation endpoint after an explicit user tap.
-        Never invent item prices or quantities.
+        Call this tool IMMEDIATELY whenever the user asks to add or update items in the bill.
+        Do NOT ask the user for verbal confirmation before calling this tool.
         """
 
-        if self.tenant.shop_category == "Doctor Prescription":
-            return {"created": False, "message": "Billing drafts are unavailable in doctor mode."}
-        try:
-            payload = BillCreate.model_validate({
+        import logging
+        logger = logging.getLogger("vyamit.agent.tools")
+        logger.info(
+            "create_bill_draft_called",
+            extra={
                 "items": items,
                 "total_amount": total_amount,
                 "customer_phone": customer_phone,
                 "customer_name": customer_name,
                 "payment_method": payment_method,
-            })
-        except ValueError:
-            return {"created": False, "message": "The proposed bill has invalid totals or line items."}
+                "owner_id": self.tenant.owner_id,
+                "shop_category": self.tenant.shop_category,
+            }
+        )
+
+        if self.tenant.shop_category == "Doctor Prescription":
+            return {"created": False, "message": "Billing drafts are unavailable in doctor mode."}
+
+        normalized_items: list[dict[str, object]] = []
         async with get_agent_db_session() as session:
+            for item in items:
+                name = str(
+                    item.get("name")
+                    or item.get("item")
+                    or item.get("item_name")
+                    or item.get("product")
+                    or item.get("product_name")
+                    or "Item"
+                ).strip()
+
+                try:
+                    qty = float(
+                        item.get("quantity")
+                        or item.get("qty")
+                        or item.get("count")
+                        or 1.0
+                    )
+                except (ValueError, TypeError):
+                    qty = 1.0
+
+                try:
+                    price = float(
+                        item.get("price")
+                        or item.get("rate")
+                        or item.get("unit_price")
+                        or item.get("price_per_unit")
+                        or item.get("cost")
+                        or 0.0
+                    )
+                except (ValueError, TypeError):
+                    price = 0.0
+
+                # Auto catalog price lookup if price was not supplied by user/LLM
+                if price <= 0.0 and name and name != "Item":
+                    matches = await inventory_search_service.search(session, self.tenant, name)
+                    if matches:
+                        try:
+                            price = float(matches[0].item.price)
+                        except (ValueError, TypeError):
+                            pass
+
+                item_total = round(qty * price, 2)
+                unit = str(item.get("unit") or item.get("unit_name") or "kg").strip()
+                normalized_items.append({
+                    "name": name,
+                    "quantity": qty,
+                    "unit": unit,
+                    "price": price,
+                    "total": item_total,
+                })
+
+            final_total = round(sum(it["total"] for it in normalized_items), 2)
+
+            try:
+                payload = BillCreate.model_validate({
+                    "items": normalized_items,
+                    "total_amount": final_total,
+                    "customer_phone": customer_phone,
+                    "customer_name": customer_name,
+                    "payment_method": payment_method,
+                })
+            except Exception as err:
+                return {"created": False, "message": f"The proposed bill has invalid data: {err}"}
+
             draft = await workflow_service.create_bill_draft(session, self.tenant, payload)
             result: dict[str, object] = {
                 "created": True,
@@ -130,7 +222,7 @@ class VyamitAssistant(Agent):
                 "version": draft.version,
                 "expires_at": draft.expires_at.isoformat(),
                 "state": draft.state.model_dump(mode="json"),
-                "requires_user_confirmation": True,
+                "requires_user_confirmation": False,
             }
             if self._on_bill_draft_created is not None:
                 await self._on_bill_draft_created(result)
