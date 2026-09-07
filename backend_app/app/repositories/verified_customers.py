@@ -79,7 +79,7 @@ class VerifiedCustomerRepository:
                 VerifiedCustomer.shop_category == tenant.shop_category,
                 func.lower(VerifiedCustomer.name).contains(clean_pattern.lower()),
             )
-            .order_by(VerifiedCustomer.name)
+            .order_by(func.lower(VerifiedCustomer.name), VerifiedCustomer.name)
             .limit(limit)
         )
         return list(results.all())
@@ -120,7 +120,10 @@ class VerifiedCustomerRepository:
         elif order_by == "total_spent":
             query = query.order_by(VerifiedCustomer.total_spent.desc())
         else:  # default: alphabetical by name
-            query = query.order_by(VerifiedCustomer.name)
+            query = query.order_by(
+                func.lower(VerifiedCustomer.name),
+                VerifiedCustomer.name,
+            )
         
         query = query.limit(limit).offset(offset)
         
@@ -184,6 +187,22 @@ class VerifiedCustomerRepository:
             )
         )
         return count or 0
+
+    async def get_bill_for_linking(
+        self,
+        tenant: TenantContext,
+        bill_id: int,
+    ) -> Bill | None:
+        """Lock one tenant-owned bill before it is linked to a verified customer."""
+        return await self.session.scalar(
+            select(Bill)
+            .where(
+                Bill.id == bill_id,
+                Bill.owner_id == tenant.owner_id,
+                Bill.shop_category == tenant.shop_category,
+            )
+            .with_for_update()
+        )
 
     async def search_by_embedding(
         self,

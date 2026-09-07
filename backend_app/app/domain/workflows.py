@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -12,9 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import WorkflowDraft
 from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
-from app.repositories.verified_customers import VerifiedCustomerRepository
+from app.domain.customers import customer_service, is_meaningful_customer_name
 from app.repositories.workflows import WorkflowDraftRepository
-from app.retrieval.customers import customer_search_service
 from app.schemas.analytics import BillCreate
 from app.schemas.workflows import BillDraftResponse, CustomerVerificationSuggestion
 
@@ -24,32 +22,8 @@ class WorkflowService:
 
     @staticmethod
     def _is_valid_customer_name(name: str | None) -> bool:
-        """Check if customer name is valid and meaningful (not generic placeholders)."""
-        if not name or not name.strip():
-            return False
-        
-        clean_name = name.strip().lower()
-        
-        # Reject if too short (less than 2 characters)
-        if len(clean_name) < 2:
-            return False
-        
-        # Reject generic placeholders
-        generic_terms = {
-            "customer", "guest", "user", "anonymous", "unknown", "unnamed",
-            "n/a", "na", "none", "test", "temp", "default", "cash", "walk-in",
-            "walkin", "retail"
-        }
-        
-        if clean_name in generic_terms:
-            return False
-        
-        # Reject if it's just numbers
-        if clean_name.replace(" ", "").isdigit():
-            return False
-        
-        # Accept if it contains at least some letters
-        return bool(re.search(r'[a-zA-Z]', clean_name))
+        """Keep workflow prompts and the verification endpoint in agreement."""
+        return is_meaningful_customer_name(name)
 
     async def _generate_verification_suggestion(
         self,
@@ -63,45 +37,15 @@ class WorkflowService:
         if not self._is_valid_customer_name(customer_name):
             return None
         
-        clean_name = customer_name.strip()
-        
-        # Check if customer already exists in verified list
-        existing_customer, similar_customers = await customer_search_service.find_or_suggest(
-            session, tenant, clean_name
+        suggestion = await customer_service.get_verification_suggestion(
+            session,
+            tenant,
+            customer_name,
         )
-        
-        # Customer already verified - no need to ask
-        if existing_customer:
-            return CustomerVerificationSuggestion(
-                should_verify=False,
-                customer_name=clean_name,
-                existing_customer_id=existing_customer.id,
-                existing_customer_name=existing_customer.name,
-                is_duplicate=True,
-                message=f"Customer '{existing_customer.name}' is already verified."
-            )
-        
-        # Check for similar names (potential duplicates)
-        if similar_customers:
-            similar = similar_customers[0]  # Take the closest match
-            if similar.score >= 0.85:  # High similarity threshold
-                return CustomerVerificationSuggestion(
-                    should_verify=True,
-                    customer_name=clean_name,
-                    existing_customer_id=similar.customer.id,
-                    existing_customer_name=similar.customer.name,
-                    is_duplicate=True,
-                    message=f"Should I add '{clean_name}' to the existing customer '{similar.customer.name}'?"
-                )
-        
-        # New customer - ask to verify
-        return CustomerVerificationSuggestion(
-            should_verify=True,
-            customer_name=clean_name,
-            existing_customer_id=None,
-            existing_customer_name=None,
-            is_duplicate=False,
-            message=f"Should I add '{clean_name}' to verified customers?"
+        return (
+            CustomerVerificationSuggestion.model_validate(suggestion.model_dump())
+            if suggestion is not None
+            else None
         )
 
     async def _response(

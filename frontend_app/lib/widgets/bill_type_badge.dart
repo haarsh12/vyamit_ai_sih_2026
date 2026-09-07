@@ -55,3 +55,43 @@ class BillTypeIcon extends StatelessWidget {
     );
   }
 }
+
+class BillingSourceBadge extends StatelessWidget {
+  final String billingSource;
+
+  const BillingSourceBadge({
+    super.key,
+    required this.billingSource,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isFrequent = billingSource == 'frequent';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isFrequent ? Colors.orange.shade100 : Colors.purple.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isFrequent ? Icons.bolt_rounded : Icons.mic_rounded,
+            size: 12,
+            color: isFrequent ? Colors.orange.shade800 : Colors.purple.shade700,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            isFrequent ? 'FREQUENT' : 'VOICE',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isFrequent ? Colors.orange.shade800 : Colors.purple.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

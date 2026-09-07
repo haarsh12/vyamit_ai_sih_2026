@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../core/theme.dart';
 
-class CustomerVerificationDialog extends StatelessWidget {
+class CustomerVerificationDialog extends StatefulWidget {
   final CustomerVerificationSuggestion suggestion;
-  final VoidCallback onYes;
+  final Future<void> Function() onYes;
   final VoidCallback onNo;
 
   const CustomerVerificationDialog({
@@ -15,7 +15,26 @@ class CustomerVerificationDialog extends StatelessWidget {
   });
 
   @override
+  State<CustomerVerificationDialog> createState() =>
+      _CustomerVerificationDialogState();
+}
+
+class _CustomerVerificationDialogState
+    extends State<CustomerVerificationDialog> {
+  bool _isSaving = false;
+
+  Future<void> _confirm() async {
+    setState(() => _isSaving = true);
+    try {
+      await widget.onYes();
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final suggestion = widget.suggestion;
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -46,7 +65,7 @@ class CustomerVerificationDialog extends StatelessWidget {
             
             // Title
             Text(
-              'Save Customer?',
+              suggestion.isDuplicate ? 'Add Bill to Customer?' : 'Save Customer?',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -59,7 +78,7 @@ class CustomerVerificationDialog extends StatelessWidget {
             // Message
             if (suggestion.isDuplicate && suggestion.existingCustomerName != null)
               Text(
-                'Similar customer found: ${suggestion.existingCustomerName}',
+                'Existing verified customer: ${suggestion.existingCustomerName}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -87,7 +106,7 @@ class CustomerVerificationDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: onNo,
+                    onPressed: _isSaving ? null : widget.onNo,
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey[400]!),
                       shape: RoundedRectangleBorder(
@@ -108,7 +127,7 @@ class CustomerVerificationDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: onYes,
+                    onPressed: _isSaving ? null : _confirm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGreen,
                       shape: RoundedRectangleBorder(
@@ -116,14 +135,25 @@ class CustomerVerificationDialog extends StatelessWidget {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text(
-                      'Yes, Save',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            suggestion.isDuplicate
+                                ? 'Yes, Add Bill'
+                                : 'Yes, Save',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],

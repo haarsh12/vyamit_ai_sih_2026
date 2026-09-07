@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -12,11 +13,88 @@ from app.db.models import EmbeddingJob, VerifiedCustomer
 from app.db.tenant import TenantContext
 from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.retrieval.customers import customer_search_service
+from app.schemas.customers import CustomerVerificationSuggestionResponse
 from app.workers.embeddings import verified_customer_embedding_source_hash
+
+
+def is_meaningful_customer_name(name: str | None) -> bool:
+    """Return whether a supplied name is suitable for an explicit customer record.
+
+    This deliberately validates only obvious placeholders.  The app cannot prove a
+    spoken name is a real person, but it must never offer to save "walk-in",
+    "unknown", a number, or an empty voice transcription as a customer.
+    """
+    if not name:
+        return False
+
+    clean_name = " ".join(name.split())
+    if len(clean_name) < 2:
+        return False
+
+    normalized = clean_name.casefold()
+    generic_terms = {
+        "customer", "guest", "user", "anonymous", "unknown", "unnamed",
+        "n/a", "na", "none", "test", "temp", "default", "cash", "walk-in",
+        "walkin", "walk in", "retail", "no name", "name not provided",
+        "the customer", "customer name", "customer is", "naam nahi hai",
+    }
+    if normalized in generic_terms:
+        return False
+
+    # ``[^\W\d_]`` means a Unicode letter, so Hindi/Marathi names are accepted
+    # alongside Latin-script names while numeric or punctuation-only input is not.
+    return bool(re.search(r"[^\W\d_]", clean_name, flags=re.UNICODE))
 
 
 class CustomerService:
     """Domain service for verified customer operations."""
+
+    async def get_verification_suggestion(
+        self,
+        session: AsyncSession,
+        tenant: TenantContext,
+        customer_name: str | None,
+    ) -> CustomerVerificationSuggestionResponse | None:
+        """Return the explicit post-bill choice appropriate for a typed name."""
+        if not is_meaningful_customer_name(customer_name):
+            return None
+
+        clean_name = " ".join((customer_name or "").split())
+        existing_customer, similar_customers = await customer_search_service.find_or_suggest(
+            session,
+            tenant,
+            clean_name,
+        )
+        if existing_customer:
+            return CustomerVerificationSuggestionResponse(
+                should_verify=True,
+                customer_name=clean_name,
+                existing_customer_id=existing_customer.id,
+                existing_customer_name=existing_customer.name,
+                is_duplicate=True,
+                message=f"Add this bill to existing customer '{existing_customer.name}'?",
+            )
+
+        if similar_customers and similar_customers[0].score >= 0.85:
+            similar = similar_customers[0]
+            return CustomerVerificationSuggestionResponse(
+                should_verify=True,
+                customer_name=clean_name,
+                existing_customer_id=similar.customer.id,
+                existing_customer_name=similar.customer.name,
+                is_duplicate=True,
+                message=(
+                    f"Should I add '{clean_name}' to the existing customer "
+                    f"'{similar.customer.name}'?"
+                ),
+            )
+
+        return CustomerVerificationSuggestionResponse(
+            should_verify=True,
+            customer_name=clean_name,
+            is_duplicate=False,
+            message=f"Should I add '{clean_name}' to verified customers?",
+        )
 
     async def verify_customer(
         self,
@@ -26,6 +104,7 @@ class CustomerService:
         customer_name: str,
         phone_number: str | None = None,
         merge_with_existing_id: int | None = None,
+        link_bill_id: int | None = None,
     ) -> dict[str, object]:
         """
         Verify a customer and add them to the verified list.
@@ -35,19 +114,24 @@ class CustomerService:
             tenant: Tenant context
             customer_name: Customer's name
             phone_number: Optional phone number
-            merge_with_existing_id: If provided, merge with existing customer instead of creating new
+            merge_with_existing_id: If provided, use this existing verified customer
+            link_bill_id: If provided, add this tenant-owned saved bill to the customer's history
         
         Returns:
             Dict with verification result including customer_id and whether it was merged
         """
         repository = VerifiedCustomerRepository(session)
         
-        clean_name = customer_name.strip()
-        if not clean_name or len(clean_name) < 2:
+        clean_name = " ".join(customer_name.split())
+        if not is_meaningful_customer_name(clean_name):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Customer name must be at least 2 characters"
+                detail="A meaningful customer name is required"
             )
+
+        customer: VerifiedCustomer
+        created = False
+        merged = False
         
         # If merging with existing customer
         if merge_with_existing_id:
@@ -61,56 +145,75 @@ class CustomerService:
             # Update phone if provided and not already set
             if phone_number and not existing.phone_number:
                 existing.phone_number = phone_number.strip()
-            
-            await session.commit()
-            
-            return {
-                "success": True,
-                "customer_id": existing.id,
-                "customer_name": existing.name,
-                "merged": True,
-                "message": f"Bills will be linked to existing customer '{existing.name}'"
-            }
-        
-        # Check for exact duplicate
-        existing_customer = await repository.find_by_exact_name(tenant, clean_name)
-        if existing_customer:
-            return {
-                "success": True,
-                "customer_id": existing_customer.id,
-                "customer_name": existing_customer.name,
-                "merged": False,
-                "message": f"Customer '{existing_customer.name}' already verified"
-            }
-        
-        # Create new verified customer
-        customer = await repository.create(
-            tenant,
-            name=clean_name,
-            phone_number=phone_number,
-        )
-        
-        # Schedule embedding generation
-        embedding_job = EmbeddingJob(
-            entity_type="verified_customer",
-            entity_id=customer.id,
-            owner_id=tenant.owner_id,
-            operation="upsert",
-            source_hash=verified_customer_embedding_source_hash(customer),
-            status="pending",
-            available_at=datetime.now(UTC),
-        )
-        session.add(embedding_job)
-        
+            customer = existing
+            merged = True
+
+        else:
+            # This also protects callers that retry after the initial prompt: an
+            # exact match is never allowed to create a second customer row.
+            existing_customer = await repository.find_by_exact_name(tenant, clean_name)
+            if existing_customer:
+                customer = existing_customer
+                merged = True
+                if phone_number and not customer.phone_number:
+                    customer.phone_number = phone_number.strip()
+            else:
+                customer = await repository.create(
+                    tenant,
+                    name=clean_name,
+                    phone_number=phone_number,
+                )
+                created = True
+
+        if created:
+            # Generate pgvector data asynchronously, so the post-print UI does
+            # not wait on Vertex.  The outbox worker retries failures safely.
+            session.add(EmbeddingJob(
+                entity_type="verified_customer",
+                entity_id=customer.id,
+                owner_id=tenant.owner_id,
+                operation="upsert",
+                source_hash=verified_customer_embedding_source_hash(customer),
+                status="pending",
+                available_at=datetime.now(UTC),
+            ))
+
+        bill_linked = False
+        if link_bill_id is not None:
+            bill = await repository.get_bill_for_linking(tenant, link_bill_id)
+            if bill is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved bill not found")
+            if bill.verified_customer_id not in (None, customer.id):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This bill is already linked to a different verified customer",
+                )
+            if bill.verified_customer_id is None:
+                bill.verified_customer_id = customer.id
+                await repository.update_purchase_stats(
+                    customer,
+                    amount=bill.total_amount,
+                    purchased_at=bill.bill_date,
+                )
+                bill_linked = True
+
         await session.commit()
         await session.refresh(customer)
-        
+
+        if bill_linked:
+            message = f"Bill added to verified customer '{customer.name}'"
+        elif merged:
+            message = f"Customer '{customer.name}' is already verified"
+        else:
+            message = f"Customer '{customer.name}' added to verified list"
+
         return {
             "success": True,
             "customer_id": customer.id,
             "customer_name": customer.name,
-            "merged": False,
-            "message": f"Customer '{customer.name}' added to verified list"
+            "merged": merged,
+            "bill_linked": bill_linked,
+            "message": message,
         }
 
     async def list_verified_customers(
@@ -285,6 +388,7 @@ class CustomerService:
                     "items": bill.items,
                     "payment_method": bill.payment_method,
                     "bill_type": bill.bill_type,
+                    "billing_source": bill.billing_source,
                     "bill_date": bill.bill_date.isoformat(),
                     "created_at": bill.created_at.isoformat(),
                 }

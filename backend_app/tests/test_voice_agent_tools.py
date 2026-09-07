@@ -15,7 +15,13 @@ def test_retail_voice_agent_exposes_tenant_scoped_inventory_tools() -> None:
 
     tool_ids = {tool.id for tool in agent.tools}
 
-    assert {"search_inventory", "create_bill_draft", "find_customer"} <= tool_ids
+    assert {
+        "search_inventory",
+        "create_bill_draft",
+        "find_customer",
+        "search_verified_customers",
+        "get_customer_bill_history",
+    } <= tool_ids
 
 
 @pytest.mark.asyncio
@@ -89,4 +95,3 @@ async def test_inventory_search_hindi_transliteration_and_stop_words() -> None:
         matches_milk = await inventory_search_service.search(session_mock, tenant, "दूध")
         assert len(matches_milk) > 0
         assert matches_milk[0].item.master_id == "milk-1"
-

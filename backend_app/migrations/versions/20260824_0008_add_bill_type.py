@@ -18,23 +18,24 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add bill_type column with default 'printed' for existing bills
-    op.add_column(
-        "bills",
-        sa.Column(
-            "bill_type",
-            sa.String(length=20),
-            nullable=False,
-            server_default="printed"
-        ),
-    )
-    
-    # Create index for filtering by bill type
-    op.create_index(
-        "ix_bills_bill_type",
-        "bills",
-        ["bill_type"],
-    )
+    inspector = sa.inspect(op.get_bind())
+    bill_columns = {column["name"] for column in inspector.get_columns("bills")}
+    if "bill_type" not in bill_columns:
+        # Existing bills are physical/printed bills unless explicitly migrated.
+        op.add_column(
+            "bills",
+            sa.Column(
+                "bill_type",
+                sa.String(length=20),
+                nullable=False,
+                server_default="printed",
+            ),
+        )
+
+    inspector = sa.inspect(op.get_bind())
+    bill_indexes = {index["name"] for index in inspector.get_indexes("bills")}
+    if "ix_bills_bill_type" not in bill_indexes:
+        op.create_index("ix_bills_bill_type", "bills", ["bill_type"])
 
 
 def downgrade() -> None:

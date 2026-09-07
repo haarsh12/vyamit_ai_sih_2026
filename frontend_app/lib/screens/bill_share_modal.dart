@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
@@ -7,13 +6,15 @@ import '../models/customer.dart';
 import '../widgets/customer_verification_dialog.dart';
 import '../services/customer_service.dart';
 import '../services/api_client.dart';
+import '../services/analytics_service.dart';
+import '../services/auth_token_store.dart';
 
 class BillShareModal extends StatefulWidget {
   final List<Map<String, dynamic>> billItems;
   final double totalAmount;
   final ShopDetails shopDetails;
   final String? customerName;
-  final CustomerVerificationSuggestion? verificationSuggestion;
+  final String billingSource;
 
   const BillShareModal({
     super.key,
@@ -21,7 +22,7 @@ class BillShareModal extends StatefulWidget {
     required this.totalAmount,
     required this.shopDetails,
     this.customerName,
-    this.verificationSuggestion,
+    this.billingSource = 'voice',
   });
 
   @override
@@ -32,6 +33,7 @@ class _BillShareModalState extends State<BillShareModal> {
   late final TextEditingController _customerNameController;
   final TextEditingController _mobileController = TextEditingController();
   late final CustomerService _customerService;
+  final AnalyticsService _analyticsService = AnalyticsService();
   bool _isLoading = false;
 
   @override
@@ -46,8 +48,21 @@ class _BillShareModalState extends State<BillShareModal> {
   }
 
   bool _isGenericName(String name) {
-    final generic = ['customer', 'guest', 'user', 'anonymous', 'unknown', 'unnamed',
-                     'walk-in', 'walkin', 'retail', 'cash', 'n/a', 'na'];
+    final generic = [
+      'customer',
+      'guest',
+      'user',
+      'anonymous',
+      'unknown',
+      'unnamed',
+      'walk-in',
+      'walkin',
+      'walk in',
+      'retail',
+      'cash',
+      'n/a',
+      'na',
+    ];
     return generic.contains(name.toLowerCase().trim());
   }
 
@@ -123,6 +138,153 @@ class _BillShareModalState extends State<BillShareModal> {
     return buffer.toString();
   }
 
+  String get _finalCustomerName {
+    final name = _customerNameController.text.trim();
+    return name.isEmpty ? 'Walk-in' : name;
+  }
+
+  double _asNumber(dynamic value) {
+    if (value is num) return value.toDouble();
+    final text = value?.toString() ?? '';
+    return double.tryParse(text) ??
+        double.tryParse(text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+        0;
+  }
+
+  List<Map<String, dynamic>> _billItemsForApi() {
+    return widget.billItems.map((item) {
+      final quantity = _asNumber(item['quantity'] ?? item['qty'] ?? item['qty_display']);
+      final safeQuantity = quantity > 0 ? quantity : 1.0;
+      final price = _asNumber(item['price'] ?? item['rate']);
+      final total = double.parse((safeQuantity * price).toStringAsFixed(2));
+      return {
+        'name': (item['name'] ?? item['en'] ?? 'Item').toString(),
+        'quantity': safeQuantity,
+        'unit': (item['unit'] ?? 'unit').toString(),
+        'price': double.parse(price.toStringAsFixed(2)),
+        'total': total,
+      };
+    }).toList();
+  }
+
+  Future<int?> _saveVirtualBill() async {
+    final token = await AuthTokenStore().read();
+    if (token == null) return null;
+
+    final items = _billItemsForApi();
+    final total = items.fold<double>(
+      0,
+      (sum, item) => sum + (item['total'] as double),
+    );
+    final result = await _analyticsService.saveBill(
+      token,
+      totalAmount: double.parse(total.toStringAsFixed(2)),
+      items: items,
+      customerPhone: _mobileController.text.trim(),
+      customerName: _finalCustomerName,
+      paymentMethod: 'cash',
+      billType: 'virtual',
+      billingSource: widget.billingSource,
+    );
+    final billId = result?['bill_id'];
+    return billId is num ? billId.toInt() : null;
+  }
+
+  Future<bool> _verifyAndLinkCustomer(
+    CustomerVerificationSuggestion suggestion,
+    int billId,
+  ) async {
+    try {
+      final result = await _customerService.verifyCustomer(
+        customerName: suggestion.customerName!,
+        phoneNumber: _mobileController.text.trim(),
+        mergeWithExistingId:
+            suggestion.isDuplicate ? suggestion.existingCustomerId : null,
+        linkBillId: billId,
+      );
+      if (mounted) {
+        _showSuccess(result['message']?.toString() ?? 'Customer saved');
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        _showError('Virtual bill saved, but customer verification failed: $error');
+      }
+      return false;
+    }
+  }
+
+  Future<void> _showCustomerVerification(
+    CustomerVerificationSuggestion suggestion,
+    int billId,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => CustomerVerificationDialog(
+        suggestion: suggestion,
+        onNo: () => Navigator.of(dialogContext).pop(),
+        onYes: () async {
+          if (await _verifyAndLinkCustomer(suggestion, billId) &&
+              dialogContext.mounted) {
+            Navigator.of(dialogContext).pop();
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _completeVirtualShare(
+    Future<bool> Function() openShareApp,
+    String channel,
+  ) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+
+    try {
+      if (!await openShareApp()) {
+        _showError('Failed to open $channel');
+        return;
+      }
+
+      final billId = await _saveVirtualBill();
+      if (billId == null) {
+        _showError('The $channel bill was opened but could not be saved to history.');
+        return;
+      }
+
+      CustomerVerificationSuggestion? suggestion;
+      try {
+        suggestion = await _customerService.getVerificationSuggestion(
+          _finalCustomerName,
+        );
+      } catch (_) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          _showError(
+            'Virtual bill was saved to history, but customer verification is unavailable.',
+          );
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (suggestion != null && suggestion.shouldVerify) {
+        await _showCustomerVerification(suggestion, billId);
+      } else {
+        _showSuccess('Virtual bill saved to history.');
+      }
+
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) _showError('Failed to save virtual bill: $error');
+    } finally {
+      if (mounted && _isLoading) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _shareViaSMS() async {
     final mobile = _mobileController.text.trim();
 
@@ -147,13 +309,10 @@ class _BillShareModalState extends State<BillShareModal> {
       print('🔍 Trying to launch SMS: $smsUrl');
       
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-        if (mounted) {
-          Navigator.pop(context);
-          _showSuccess('Opening SMS app...');
-          // Show customer verification dialog after sending
-          _showCustomerVerificationAfterSend();
-        }
+        await _completeVirtualShare(
+          () => launchUrl(uri),
+          'SMS',
+        );
       } else {
         _showError('SMS app not available');
       }
@@ -189,32 +348,20 @@ class _BillShareModalState extends State<BillShareModal> {
       print('🔍 Can launch: $canLaunch');
       
       if (canLaunch) {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
+        await _completeVirtualShare(
+          () => launchUrl(uri, mode: LaunchMode.externalApplication),
+          'WhatsApp',
         );
-        
-        if (launched && mounted) {
-          Navigator.pop(context);
-          _showSuccess('Opening WhatsApp...');
-          // Show customer verification dialog after sending
-          _showCustomerVerificationAfterSend();
-        } else {
-          _showError('Failed to open WhatsApp');
-        }
       } else {
         // Fallback to https URL
         final fallbackUrl = 'https://wa.me/$formattedMobile?text=$encodedText';
         final fallbackUri = Uri.parse(fallbackUrl);
         
         if (await canLaunchUrl(fallbackUri)) {
-          await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
-          if (mounted) {
-            Navigator.pop(context);
-            _showSuccess('Opening WhatsApp...');
-            // Show customer verification dialog after sending
-            _showCustomerVerificationAfterSend();
-          }
+          await _completeVirtualShare(
+            () => launchUrl(fallbackUri, mode: LaunchMode.externalApplication),
+            'WhatsApp',
+          );
         } else {
           _showError('WhatsApp is not installed');
         }
@@ -222,64 +369,6 @@ class _BillShareModalState extends State<BillShareModal> {
     } catch (e) {
       print('❌ WhatsApp launch error: $e');
       _showError('Failed to open WhatsApp: $e');
-    }
-  }
-
-  void _showCustomerVerificationAfterSend() {
-    // Check if we should show verification dialog
-    if (widget.verificationSuggestion != null && 
-        widget.verificationSuggestion!.shouldVerify) {
-      // Delay to allow modal to close first
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => CustomerVerificationDialog(
-              suggestion: widget.verificationSuggestion!,
-              onYes: () => _handleCustomerVerification(true),
-              onNo: () => _handleCustomerVerification(false),
-            ),
-          );
-        }
-      });
-    }
-  }
-
-  Future<void> _handleCustomerVerification(bool shouldSave) async {
-    Navigator.pop(context); // Close verification dialog
-
-    if (!shouldSave || widget.verificationSuggestion == null) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final result = await _customerService.verifyCustomer(
-        customerName: widget.verificationSuggestion!.customerName!,
-        phoneNumber: _mobileController.text.trim().isNotEmpty 
-            ? _mobileController.text.trim() 
-            : null,
-        mergeWithExistingId: widget.verificationSuggestion!.isDuplicate
-            ? widget.verificationSuggestion!.existingCustomerId
-            : null,
-      );
-
-      if (mounted) {
-        _showSuccess(result['message'] ?? 'Customer saved successfully');
-      }
-    } catch (e) {
-      if (mounted) {
-        _showError('Failed to save customer: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -454,7 +543,7 @@ class _BillShareModalState extends State<BillShareModal> {
                                 icon: Icons.sms,
                                 label: 'SMS',
                                 color: const Color(0xFF2196F3),
-                                isEnabled: true,
+                                isEnabled: !_isLoading,
                                 onTap: _shareViaSMS,
                               ),
 
@@ -463,7 +552,7 @@ class _BillShareModalState extends State<BillShareModal> {
                                 icon: Icons.chat,
                                 label: 'WhatsApp',
                                 color: const Color(0xFF25D366),
-                                isEnabled: true,
+                                isEnabled: !_isLoading,
                                 onTap: _shareViaWhatsApp,
                               ),
                             ],

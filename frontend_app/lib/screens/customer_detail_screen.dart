@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../models/customer.dart';
 import '../services/customer_service.dart';
 import '../services/api_client.dart';
+import '../widgets/bill_type_badge.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final int customerId;
@@ -43,7 +44,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
       if (mounted) {
         setState(() {
-          _customerData = details['customer'];
+          _customerData = details;
           _bills = billsData['bills'] as List<CustomerBillItem>;
           _isLoading = false;
         });
@@ -292,8 +293,16 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       ),
       child: ExpansionTile(
         leading: Icon(
-          isVirtual ? Icons.phone_android : Icons.print,
-          color: isVirtual ? Colors.blue : Colors.green,
+          bill.billingSource == 'frequent'
+              ? Icons.bolt_rounded
+              : isVirtual
+                  ? Icons.phone_android
+                  : Icons.print,
+          color: bill.billingSource == 'frequent'
+              ? Colors.orange
+              : isVirtual
+                  ? Colors.blue
+                  : Colors.green,
         ),
         title: Row(
           children: [
@@ -305,25 +314,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: isVirtual 
-                    ? Colors.blue.shade100 
-                    : Colors.green.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                isVirtual ? 'VIRTUAL' : 'PRINTED',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: isVirtual 
-                      ? Colors.blue.shade700 
-                      : Colors.green.shade700,
-                ),
-              ),
-            ),
+            BillTypeBadge(billType: bill.billType),
+            const SizedBox(width: 6),
+            BillingSourceBadge(billingSource: bill.billingSource),
           ],
         ),
         subtitle: Column(

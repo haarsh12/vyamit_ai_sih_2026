@@ -45,6 +45,26 @@ def test_bill_payload_requires_exact_line_and_grand_totals() -> None:
     )
 
     assert payload.total_amount == Decimal("201.00")
+    assert payload.bill_type == "printed"
+    assert payload.billing_source == "voice"
+
+    frequent_virtual_payload = BillCreate.model_validate(
+        {
+            "items": [
+                {
+                    "name": "Milk",
+                    "quantity": "1",
+                    "unit": "litre",
+                    "price": "30",
+                    "total": "30",
+                }
+            ],
+            "total_amount": "30",
+            "bill_type": "virtual",
+            "billing_source": "frequent",
+        }
+    )
+    assert frequent_virtual_payload.billing_source == "frequent"
 
     with pytest.raises(ValidationError):
         BillCreate.model_validate(

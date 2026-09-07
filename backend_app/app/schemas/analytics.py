@@ -32,6 +32,11 @@ class BillCreate(BaseModel):
     customer_name: str | None = Field(default=None, max_length=120)
     payment_method: str = Field(default="cash", min_length=1, max_length=30)
     bill_type: str = Field(default="printed", pattern="^(printed|virtual)$", description="Bill type: 'printed' or 'virtual'")
+    billing_source: str = Field(
+        default="voice",
+        pattern="^(voice|frequent)$",
+        description="Billing screen that created the bill",
+    )
 
     @model_validator(mode="after")
     def ensure_grand_total_matches(self) -> "BillCreate":

@@ -53,13 +53,15 @@ class AnalyticsService {
     }
   }
 
-  Future<bool> saveBill(
+  Future<Map<String, dynamic>?> saveBill(
     String token, {
     required double totalAmount,
     required List<Map<String, dynamic>> items,
     String? customerPhone,
     String? customerName,
     String paymentMethod = 'cash',
+    String billType = 'printed',
+    String billingSource = 'voice',
   }) async {
     try {
       final response = await http.post(
@@ -75,16 +77,20 @@ class AnalyticsService {
           'customer_phone': customerPhone,
           'customer_name': customerName,
           'payment_method': paymentMethod,
+          'bill_type': billType,
+          'billing_source': billingSource,
         }),
       );
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        return data['success'] == true;
+        return data['success'] == true
+            ? Map<String, dynamic>.from(data as Map)
+            : null;
       }
-      return false;
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 }

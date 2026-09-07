@@ -6,13 +6,24 @@ from pathlib import Path
 _VERSIONS = Path(__file__).resolve().parents[1] / "migrations" / "versions"
 
 
-def test_latest_migration_is_customer_category_uniqueness_fix() -> None:
-    migration = _VERSIONS / "20260821_0006_customer_category_unique_key.py"
-    content = migration.read_text(encoding="utf-8")
+def test_verified_customer_migrations_follow_the_existing_chain() -> None:
+    verified_customers = (_VERSIONS / "20260824_0007_verified_customers.py").read_text(encoding="utf-8")
+    bill_type = (_VERSIONS / "20260824_0008_add_bill_type.py").read_text(encoding="utf-8")
 
-    assert 'revision = "20260821_0006"' in content
-    assert 'down_revision = "20260820_0005"' in content
-    assert '"owner_id", "shop_category", "phone_number"' in content
+    assert 'revision = "20260824_0007"' in verified_customers
+    assert 'down_revision = "20260821_0006"' in verified_customers
+    assert '"verified_customers"' in verified_customers
+    assert 'Vector(768)' in verified_customers
+    assert 'revision = "20260824_0008"' in bill_type
+    assert 'down_revision = "20260824_0007"' in bill_type
+
+
+def test_billing_source_migration_follows_bill_type_migration() -> None:
+    migration = (_VERSIONS / "20260907_0009_add_bill_billing_source.py").read_text(encoding="utf-8")
+
+    assert 'revision = "20260907_0009"' in migration
+    assert 'down_revision = "20260824_0008"' in migration
+    assert '"billing_source"' in migration
 
 
 def test_initial_migration_enables_pgvector_before_schema_creation() -> None:

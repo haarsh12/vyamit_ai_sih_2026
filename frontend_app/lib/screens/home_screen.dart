@@ -15,6 +15,10 @@ import '../providers/bill_provider.dart';
 import '../services/printer_service.dart'; // Import the new service
 import '../services/analytics_service.dart';
 import '../services/auth_token_store.dart';
+import '../services/api_client.dart';
+import '../services/customer_service.dart';
+import '../models/customer.dart';
+import '../widgets/customer_verification_dialog.dart';
 import '../core/shop_categories.dart';
 import '../features/category_experience/category_frequent_items.dart';
 import '../features/category_experience/category_page_factory.dart';
@@ -44,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Using the new Service
   final PrinterService _printerService = PrinterService();
   final AnalyticsService _analyticsService = AnalyticsService();
+  final CustomerService _customerService = CustomerService(ApiClient());
 
   // Keep local state for UI updates
   BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
@@ -263,13 +268,111 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- CORE BILLING LOGIC (Modified) ---
+  List<Map<String, dynamic>> _billItemsForApi(Map<String, dynamic> billData) {
+    final items = billData['items'] as List? ?? const [];
+    return items.map((item) {
+      final line = Map<String, dynamic>.from(item as Map);
+      return {
+        'name': line['name'],
+        'quantity': line['qty'] ?? line['quantity'] ?? 1,
+        'unit': line['unit'] ?? 'unit',
+        'price': line['price'] ?? line['rate'] ?? 0,
+        'total': line['total'] ?? 0,
+      };
+    }).toList();
+  }
+
+  Future<int?> _savePrintedBill(
+    Map<String, dynamic> billData,
+    String? token,
+  ) async {
+    if (billData['server_saved'] == true) {
+      final serverBillId = billData['bill_id'];
+      return serverBillId is num ? serverBillId.toInt() : null;
+    }
+    if (token == null) return null;
+
+    final result = await _analyticsService.saveBill(
+      token,
+      totalAmount: (billData['total'] as num).toDouble(),
+      items: _billItemsForApi(billData),
+      customerName: billData['customerName'] as String?,
+      paymentMethod: 'cash',
+      billingSource: billData['billing_source'] as String? ?? 'voice',
+    );
+    final billId = result?['bill_id'];
+    return billId is num ? billId.toInt() : null;
+  }
+
+  Future<void> _offerCustomerVerification(
+    Map<String, dynamic> billData,
+    int billId,
+  ) async {
+    final rawSuggestion = billData['customer_verification_suggestion'];
+    if (rawSuggestion is! Map) return;
+
+    final suggestion = CustomerVerificationSuggestion.fromJson(
+      Map<String, dynamic>.from(rawSuggestion),
+    );
+    if (!suggestion.shouldVerify || suggestion.customerName == null || !mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => CustomerVerificationDialog(
+        suggestion: suggestion,
+        onNo: () => Navigator.of(dialogContext).pop(),
+        onYes: () async {
+          if (await _verifyAndLinkCustomer(suggestion, billId) &&
+              dialogContext.mounted) {
+            Navigator.of(dialogContext).pop();
+          }
+        },
+      ),
+    );
+  }
+
+  Future<bool> _verifyAndLinkCustomer(
+    CustomerVerificationSuggestion suggestion,
+    int billId,
+  ) async {
+    try {
+      final result = await _customerService.verifyCustomer(
+        customerName: suggestion.customerName!,
+        mergeWithExistingId:
+            suggestion.isDuplicate ? suggestion.existingCustomerId : null,
+        linkBillId: billId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? 'Customer saved'),
+            backgroundColor: AppColors.primaryGreen,
+          ),
+        );
+      }
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bill printed, but the customer could not be verified.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  // --- CORE BILLING LOGIC ---
   void _printOrSaveBill(Map<String, dynamic> billData) async {
     debugPrint("🏠 HOME SCREEN: Received bill data");
     debugPrint("🏠 Items in billData: ${billData['items']}");
     debugPrint("🏠 Items count: ${(billData['items'] as List?)?.length ?? 0}");
 
-    final serverSaved = billData['server_saved'] == true;
     // Get auth token for API calls.
     final token = await AuthTokenStore().read();
 
@@ -297,48 +400,26 @@ class _HomeScreenState extends State<HomeScreen> {
           await _printerService.printBill(billData, shopDetails, qrCodePath);
 
       if (result == "Success") {
-        // Save bill to database
-        if (!serverSaved && token != null) {
-          debugPrint("💾 Preparing to save bill to database...");
-          final items = billData['items'] as List;
-          debugPrint("💾 Bill has ${items.length} items");
-
-          final billItems = items.map((item) {
-            debugPrint("💾 Item: $item");
-            return {
-              'name': item['name'],
-              'category': item['category'] ?? 'Other',
-              'quantity': item['qty'] ?? item['quantity'] ?? 1,
-              'qty_display': item['qty_display'] ??
-                  '${item['qty'] ?? item['quantity'] ?? 1}${item['unit'] ?? ''}',
-              'unit': item['unit'],
-              'price': item['price'] ?? item['rate'] ?? 0,
-              'total': item['total'],
-            };
-          }).toList();
-
-          debugPrint("💾 Mapped items: $billItems");
-
-          final saved = await _analyticsService.saveBill(
-            token,
-            totalAmount: (billData['total'] as num).toDouble(),
-            items: billItems,
-            customerName: billData['customerName'] as String?,
-            paymentMethod: 'cash',
-          );
-
-          debugPrint("💾 Bill saved to database: $saved");
-        } else if (!serverSaved) {
-          debugPrint("❌ No auth token - cannot save bill");
-        }
-
+        final billId = await _savePrintedBill(billData, token);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("✅ Print Successful! Bill Saved.")));
+          SnackBar(
+            content: Text(
+              billId == null
+                  ? 'Bill printed, but it could not be saved to history.'
+                  : '✅ Print successful! Bill saved.',
+            ),
+            backgroundColor: billId == null ? Colors.red : null,
+          ),
+        );
 
         // 2. Save to History ONLY after print logic (or as per your flow)
         setState(() {
           _pastBills.insert(0, billData);
         });
+        if (billId != null) {
+          await _offerCustomerVerification(billData, billId);
+        }
       } else {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("❌ Print Failed: $result")));
@@ -355,35 +436,14 @@ class _HomeScreenState extends State<HomeScreen> {
       // For now, I will allow saving as PDF fallback if connection drops suddenly
       await _printPdf(billData);
 
-      // Save bill to database even for PDF
-      if (!serverSaved && token != null) {
-        debugPrint("💾 Preparing to save bill to database (PDF mode)...");
-        final items = billData['items'] as List;
-        final billItems = items.map((item) {
-          return {
-            'name': item['name'],
-            'category': item['category'] ?? 'Other',
-            'quantity': item['qty'] ?? item['quantity'] ?? 1,
-            'qty_display': item['qty_display'] ??
-                '${item['qty'] ?? item['quantity'] ?? 1}${item['unit'] ?? ''}',
-            'unit': item['unit'],
-            'price': item['price'] ?? item['rate'] ?? 0,
-            'total': item['total'],
-          };
-        }).toList();
-
-        await _analyticsService.saveBill(
-          token,
-          totalAmount: (billData['total'] as num).toDouble(),
-          items: billItems,
-          customerName: billData['customerName'] as String?,
-          paymentMethod: 'cash',
-        );
-      }
+      final billId = await _savePrintedBill(billData, token);
 
       setState(() {
         _pastBills.insert(0, billData);
       });
+      if (billId != null) {
+        await _offerCustomerVerification(billData, billId);
+      }
     }
   }
 

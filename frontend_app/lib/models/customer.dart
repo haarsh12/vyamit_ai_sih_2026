@@ -68,6 +68,7 @@ class CustomerBillItem {
   final List<Map<String, dynamic>> items;
   final String paymentMethod;
   final String billType;
+  final String billingSource;
   final DateTime billDate;
   final DateTime createdAt;
 
@@ -78,6 +79,7 @@ class CustomerBillItem {
     required this.items,
     required this.paymentMethod,
     required this.billType,
+    required this.billingSource,
     required this.billDate,
     required this.createdAt,
   });
@@ -90,6 +92,7 @@ class CustomerBillItem {
       items: List<Map<String, dynamic>>.from(json['items'] ?? []),
       paymentMethod: json['payment_method'] ?? 'cash',
       billType: json['bill_type'] ?? 'printed',
+      billingSource: json['billing_source'] ?? 'voice',
       billDate: DateTime.parse(json['bill_date']),
       createdAt: DateTime.parse(json['created_at']),
     );

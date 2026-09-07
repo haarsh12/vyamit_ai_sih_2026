@@ -6,7 +6,6 @@ import '../core/theme.dart';
 import '../models/shop_details.dart';
 import '../providers/bill_provider.dart';
 import '../services/livekit_voice_service.dart';
-import '../services/workflow_draft_service.dart';
 import '../services/printer_service.dart';
 import '../features/gst/gst_invoice_preview_screen.dart';
 import '../features/gst/models/gst_invoice_draft.dart';
@@ -35,7 +34,6 @@ class LiveKitVoiceAssistantScreen extends StatefulWidget {
 class _LiveKitVoiceAssistantScreenState
     extends State<LiveKitVoiceAssistantScreen> {
   final LiveKitVoiceService _voice = LiveKitVoiceService();
-  final WorkflowDraftService _drafts = WorkflowDraftService();
   StreamSubscription<VoiceUiEvent>? _events;
 
   // Session & Voice state
@@ -51,6 +49,7 @@ class _LiveKitVoiceAssistantScreenState
   // Edit Mode & Live Bill State
   bool _isEditMode = false;
   bool _isManualLiveBillOpen = false;
+  Map<String, dynamic>? _pendingCustomerVerificationSuggestion;
 
   @override
   void initState() {
@@ -300,6 +299,10 @@ class _LiveKitVoiceAssistantScreenState
 
       case 'bill_draft':
         debugPrint('🎤 VOICE: Received bill_draft event');
+        final rawSuggestion = event.payload['customer_verification_suggestion'];
+        _pendingCustomerVerificationSuggestion = rawSuggestion is Map
+            ? Map<String, dynamic>.from(rawSuggestion)
+            : null;
         if (event.payload['state'] != null &&
             event.payload['state']['items'] != null) {
           final rawItems = event.payload['state']['items'];
@@ -330,6 +333,10 @@ class _LiveKitVoiceAssistantScreenState
             }).toList();
 
             final billProvider = Provider.of<BillProvider>(context, listen: false);
+            final customerName = event.payload['state']['customer_name']?.toString().trim();
+            if (customerName != null && customerName.isNotEmpty) {
+              billProvider.setCustomerName(customerName);
+            }
             debugPrint('🎤 VOICE: Current bill has ${billProvider.currentBillItems.length} items');
             debugPrint('🎤 VOICE: Adding ${billItems.length} new items to bill');
             
@@ -587,6 +594,8 @@ class _LiveKitVoiceAssistantScreenState
       'shopAddress': widget.shopDetails.address,
       'shopPhone': widget.shopDetails.phone1,
       'items': itemsCopy,
+      if (_pendingCustomerVerificationSuggestion != null)
+        'customer_verification_suggestion': _pendingCustomerVerificationSuggestion,
     };
 
     widget.onBillFinalized(billData);
@@ -596,6 +605,7 @@ class _LiveKitVoiceAssistantScreenState
     setState(() {
       _agentResponse = "Bill Printed!";
       _isManualLiveBillOpen = false;
+      _pendingCustomerVerificationSuggestion = null;
     });
   }
 

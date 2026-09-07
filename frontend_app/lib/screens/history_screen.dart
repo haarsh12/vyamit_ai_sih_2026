@@ -248,12 +248,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
-                                        bill.billType == 'virtual' 
-                                          ? Icons.phone_android 
-                                          : Icons.print,
+                                        bill.billingSource == 'frequent'
+                                            ? Icons.bolt_rounded
+                                            : bill.billType == 'virtual'
+                                                ? Icons.phone_android
+                                                : Icons.print,
                                         color: bill.billType == 'virtual' 
-                                          ? Colors.blue 
-                                          : AppColors.primaryGreen,
+                                            ? Colors.blue
+                                            : bill.billingSource == 'frequent'
+                                                ? Colors.orange
+                                                : AppColors.primaryGreen,
                                         size: 24,
                                       ),
                                     ),
@@ -273,6 +277,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               BillTypeBadge(billType: bill.billType),
+                                              const SizedBox(width: 6),
+                                              BillingSourceBadge(
+                                                billingSource: bill.billingSource,
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 4),
@@ -392,7 +400,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Send bills via WhatsApp/SMS and save customers',
+                      'Print or share a named bill, then save the customer',
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 12,

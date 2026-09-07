@@ -50,19 +50,27 @@ class AnalyticsService:
         
         # Link to verified customer if provided
         final_verified_customer_id = verified_customer_id
-        
-        # If no explicit verified_customer_id but customer_name exists, try to find match
-        if not final_verified_customer_id and payload.customer_name:
-            customer_repo = VerifiedCustomerRepository(session)
-            verified_customer = await customer_repo.find_by_exact_name(tenant, payload.customer_name)
-            if verified_customer:
-                final_verified_customer_id = verified_customer.id
+
+        if final_verified_customer_id is not None:
+            if await VerifiedCustomerRepository(session).get_by_id(
+                tenant,
+                final_verified_customer_id,
+            ) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Verified customer not found",
+                )
+
+        # A same-name record is not sufficient to identify a person.  Linking a
+        # printed bill is always an explicit owner choice made in the post-print
+        # verification dialog (or an explicit workflow confirmation).
         
         bill = Bill(
             owner_id=tenant.owner_id, shop_category=tenant.shop_category, total_amount=payload.total_amount,
             total_items=len(payload.items), items=items, customer_phone=payload.customer_phone,
             customer_name=payload.customer_name, verified_customer_id=final_verified_customer_id,
-            payment_method=payload.payment_method.strip(), bill_type=payload.bill_type, bill_date=now,
+            payment_method=payload.payment_method.strip(), bill_type=payload.bill_type,
+            billing_source=payload.billing_source, bill_date=now,
         )
         session.add(bill)
         await session.flush()
@@ -112,6 +120,7 @@ class AnalyticsService:
                 "id": bill.id, "total_amount": float(bill.total_amount), "total_items": bill.total_items,
                 "items": bill.items, "customer_phone": bill.customer_phone, "customer_name": bill.customer_name,
                 "payment_method": bill.payment_method, "bill_type": bill.bill_type,
+                "billing_source": bill.billing_source,
                 "bill_date": bill.bill_date.isoformat(),
                 "created_at": bill.created_at.isoformat(),
             } for bill in bills], "total": len(bills), "limit": safe_limit, "offset": safe_offset,

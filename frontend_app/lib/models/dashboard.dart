@@ -150,6 +150,7 @@ class BillHistory {
   final String? customerName;
   final String paymentMethod;
   final String billType;
+  final String billingSource;
   final DateTime billDate;
 
   BillHistory({
@@ -161,6 +162,7 @@ class BillHistory {
     this.customerName,
     required this.paymentMethod,
     required this.billType,
+    required this.billingSource,
     required this.billDate,
   });
 
@@ -174,6 +176,7 @@ class BillHistory {
       customerName: json['customer_name'],
       paymentMethod: json['payment_method'] ?? 'cash',
       billType: json['bill_type'] ?? 'printed',
+      billingSource: json['billing_source'] ?? 'voice',
       billDate: DateTime.parse(json['bill_date']),
     );
   }

@@ -188,6 +188,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       'shopName': widget.shopDetails.shopName,
       'shopAddress': widget.shopDetails.address,
       'shopPhone': widget.shopDetails.phone1,
+      'billing_source': 'frequent',
       'items': _currentBill
           .map((e) => {
                 'en': e.name,
@@ -623,6 +624,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
           totalAmount: totalAmount,
           shopDetails: widget.shopDetails,
           customerName: 'Walk-in',
+          billingSource: 'frequent',
         ),
         fullscreenDialog: true,
       ),

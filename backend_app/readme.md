@@ -24,8 +24,8 @@ the same package and Supabase PostgreSQL database:
   delivery. Set `OTP_DEMO_MODE=true` only in a non-production environment.
 - Mutating bills, GST invoices, and printed prescriptions require an
   `Idempotency-Key`. The API records duplicate responses transactionally.
-- Embeddings are generated only for inventory indexing and semantic lookup. Do
-  not embed customer phone/name data by default.
+- Embeddings are generated for inventory and for names the owner explicitly
+  adds to the verified-customer list. Customer phone numbers are never embedded.
 
 ## Local setup
 

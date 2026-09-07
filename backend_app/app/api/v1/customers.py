@@ -13,6 +13,7 @@ from app.schemas.customers import (
     CustomerBillHistoryResponse,
     CustomerDetailResponse,
     CustomerListResponse,
+    CustomerVerificationSuggestionResponse,
     CustomerVerifyRequest,
 )
 
@@ -34,7 +35,8 @@ async def verify_customer(
     
     - **customer_name**: Customer's name (2-120 characters)
     - **phone_number**: Optional phone number
-    - **merge_with_existing_id**: If provided, merge with existing verified customer
+    - **merge_with_existing_id**: If provided, use an existing verified customer
+    - **link_bill_id**: If provided, add that saved printed or virtual bill to the customer history
     """
     tenant = await get_tenant_context(session, user_id)
     return await customer_service.verify_customer(
@@ -43,6 +45,7 @@ async def verify_customer(
         customer_name=payload.customer_name,
         phone_number=payload.phone_number,
         merge_with_existing_id=payload.merge_with_existing_id,
+        link_bill_id=payload.link_bill_id,
     )
 
 
@@ -74,6 +77,23 @@ async def list_verified_customers(
         order_by=order_by,
     )
     return CustomerListResponse.model_validate(result)
+
+
+@router.get(
+    "/verification-suggestion",
+    response_model=CustomerVerificationSuggestionResponse | None,
+)
+async def get_customer_verification_suggestion(
+    customer_name: str = Query(min_length=1, max_length=120),
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> CustomerVerificationSuggestionResponse | None:
+    """Check a final typed bill name before offering customer verification."""
+    return await customer_service.get_verification_suggestion(
+        session,
+        await get_tenant_context(session, user_id),
+        customer_name,
+    )
 
 
 @router.get("/{customer_id}", response_model=CustomerDetailResponse)

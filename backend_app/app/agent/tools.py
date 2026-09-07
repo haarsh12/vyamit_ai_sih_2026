@@ -138,49 +138,38 @@ class VyamitAssistant(Agent):
             return result
 
     @function_tool()
-    async def get_customer_bill_history(self, customer_name: str, recent_bills_count: int = 5) -> dict[str, object]:
-        """Get recent bill history for a verified customer by their name.
-        
+    async def get_customer_bill_history(self, customer_id: int, recent_bills_count: int = 5) -> dict[str, object]:
+        """Get recent bill history for a verified customer selected by search_verified_customers.
+
         Use this when the user asks about what a specific customer purchased previously,
-        or wants to see their purchase history. Returns the most recent bills.
-        
+        or wants to see their purchase history. Call search_verified_customers first
+        and pass the chosen result's ``id``. Returns the most recent bills.
+
         Args:
-            customer_name: The customer's name to look up
+            customer_id: The verified customer ID returned by search_verified_customers
             recent_bills_count: Number of recent bills to return (1-20, default 5)
         """
 
         import logging
         logger = logging.getLogger("vyamit.agent.tools")
         
-        clean_name = customer_name.strip()
-        if not clean_name:
-            return {"found": False, "message": "Customer name is required"}
-        
         safe_limit = min(max(recent_bills_count, 1), 20)
         
         async with get_agent_db_session() as session:
             repository = VerifiedCustomerRepository(session)
-            
-            # Try to find the customer by exact name first
-            customer = await repository.find_by_exact_name(self.tenant, clean_name)
-            
-            if not customer:
-                # If not found, try searching
-                matches = await customer_search_service.search(session, self.tenant, clean_name, limit=1)
-                if matches:
-                    customer = matches[0].customer
+            customer = await repository.get_by_id(self.tenant, customer_id)
             
             if not customer:
                 logger.info(
                     "get_customer_bill_history_not_found",
                     extra={
-                        "customer_name": clean_name,
+                        "customer_id": customer_id,
                         "owner_id": self.tenant.owner_id,
                     }
                 )
                 return {
                     "found": False,
-                    "message": f"No verified customer found with name '{clean_name}'",
+                    "message": "No verified customer found with that ID",
                 }
             
             # Get bill history
@@ -211,6 +200,8 @@ class VyamitAssistant(Agent):
                     "total_items": bill.total_items,
                     "items": bill.items,
                     "payment_method": bill.payment_method,
+                    "bill_type": bill.bill_type,
+                    "billing_source": bill.billing_source,
                     "bill_date": bill.bill_date.isoformat(),
                 } for bill in bills],
                 "returned_count": len(bills),
@@ -348,6 +339,11 @@ class VyamitAssistant(Agent):
                 "version": draft.version,
                 "expires_at": draft.expires_at.isoformat(),
                 "state": draft.state.model_dump(mode="json"),
+                "customer_verification_suggestion": (
+                    draft.customer_verification_suggestion.model_dump(mode="json")
+                    if draft.customer_verification_suggestion is not None
+                    else None
+                ),
                 "requires_user_confirmation": False,
             }
             if self._on_bill_draft_created is not None:
