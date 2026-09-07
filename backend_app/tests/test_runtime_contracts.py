@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.config.settings import Settings
+from app.domain.billing_source import billing_source_from_items
 from app.schemas.analytics import BillCreate
 
 
@@ -65,6 +66,14 @@ def test_bill_payload_requires_exact_line_and_grand_totals() -> None:
         }
     )
     assert frequent_virtual_payload.billing_source == "frequent"
+
+
+def test_billing_source_marker_is_backward_compatible_with_existing_bill_json() -> None:
+    assert billing_source_from_items([]) == "voice"
+    assert billing_source_from_items([{"name": "Milk"}]) == "voice"
+    assert billing_source_from_items([
+        {"name": "Milk", "_billing_source": "frequent"},
+    ]) == "frequent"
 
     with pytest.raises(ValidationError):
         BillCreate.model_validate(

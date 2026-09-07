@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EmbeddingJob, VerifiedCustomer
 from app.db.tenant import TenantContext
+from app.domain.billing_source import billing_source_from_items
 from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.retrieval.customers import customer_search_service
 from app.schemas.customers import CustomerVerificationSuggestionResponse
@@ -388,7 +389,7 @@ class CustomerService:
                     "items": bill.items,
                     "payment_method": bill.payment_method,
                     "bill_type": bill.bill_type,
-                    "billing_source": bill.billing_source,
+                    "billing_source": billing_source_from_items(bill.items),
                     "bill_date": bill.bill_date.isoformat(),
                     "created_at": bill.created_at.isoformat(),
                 }

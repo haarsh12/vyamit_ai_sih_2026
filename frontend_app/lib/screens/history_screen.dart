@@ -36,6 +36,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<VerifiedCustomer> _verifiedCustomers = [];
   bool _isLoading = true;
   String? _token;
+  String? _loadError;
 
   @override
   void initState() {
@@ -46,22 +47,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    
-    _token = await AuthTokenStore().read();
+    try {
+      _token = await AuthTokenStore().read();
+      if (_token == null) {
+        throw const AnalyticsRequestException(
+          'Your session has expired. Please sign in again.',
+        );
+      }
 
-    if (_token != null) {
       final dashboard = await _analyticsService.getDashboard(_token!);
       final bills = await _analyticsService.getBills(_token!);
       final customers = await _customerService.getVerifiedCustomers(limit: 10);
-      
+      if (!mounted) return;
       setState(() {
         _dashboardData = dashboard;
         _bills = bills;
         _verifiedCustomers = customers;
+        _loadError = null;
         _isLoading = false;
       });
-    } else {
-      setState(() => _isLoading = false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString();
+        _isLoading = false;
+      });
     }
   }
 
@@ -99,6 +109,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+              ? RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      const SizedBox(height: 120),
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        size: 60,
+                        color: Colors.redAccent,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Dashboard data could not be loaded',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _loadError!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Pull down or tap refresh after reconnecting.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
           : RefreshIndicator(
               onRefresh: _loadData,
               child: SingleChildScrollView(

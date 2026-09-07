@@ -22,9 +22,8 @@ def test_inventory_embedding_has_the_locked_pgvector_dimension_and_hnsw_index() 
     assert "ix_items_embedding_hnsw" in index_names
 
 
-def test_bill_records_type_and_source_independently() -> None:
+def test_bill_records_type() -> None:
     index_names = {index.name for index in Bill.__table__.indexes}
 
     assert Bill.__table__.c.bill_type.default.arg == "printed"
-    assert Bill.__table__.c.billing_source.default.arg == "voice"
-    assert "ix_bills_billing_source" in index_names
+    assert "ix_bills_bill_type" in index_names

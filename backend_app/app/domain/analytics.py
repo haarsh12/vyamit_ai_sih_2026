@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AuditEvent, Bill, IdempotencyKey, Item, SaleItem
 from app.db.tenant import TenantContext
+from app.domain.billing_source import billing_source_from_items
 from app.domain.customers import customer_service
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.verified_customers import VerifiedCustomerRepository
@@ -44,7 +45,14 @@ class AnalyticsService:
         now = datetime.now(UTC)
         categories = await repository.category_by_inventory_alias(tenant)
         items = [
-            {"name": item.name.strip(), "quantity": str(item.quantity), "unit": item.unit.strip(), "price": str(item.price), "total": str(item.total)}
+            {
+                "name": item.name.strip(),
+                "quantity": str(item.quantity),
+                "unit": item.unit.strip(),
+                "price": str(item.price),
+                "total": str(item.total),
+                "_billing_source": payload.billing_source,
+            }
             for item in payload.items
         ]
         
@@ -70,7 +78,7 @@ class AnalyticsService:
             total_items=len(payload.items), items=items, customer_phone=payload.customer_phone,
             customer_name=payload.customer_name, verified_customer_id=final_verified_customer_id,
             payment_method=payload.payment_method.strip(), bill_type=payload.bill_type,
-            billing_source=payload.billing_source, bill_date=now,
+            bill_date=now,
         )
         session.add(bill)
         await session.flush()
@@ -120,7 +128,7 @@ class AnalyticsService:
                 "id": bill.id, "total_amount": float(bill.total_amount), "total_items": bill.total_items,
                 "items": bill.items, "customer_phone": bill.customer_phone, "customer_name": bill.customer_name,
                 "payment_method": bill.payment_method, "bill_type": bill.bill_type,
-                "billing_source": bill.billing_source,
+                "billing_source": billing_source_from_items(bill.items),
                 "bill_date": bill.bill_date.isoformat(),
                 "created_at": bill.created_at.isoformat(),
             } for bill in bills], "total": len(bills), "limit": safe_limit, "offset": safe_offset,

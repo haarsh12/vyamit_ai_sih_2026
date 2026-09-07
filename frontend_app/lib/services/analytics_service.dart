@@ -4,10 +4,20 @@ import 'package:uuid/uuid.dart';
 import '../core/config.dart';
 import '../models/dashboard.dart';
 
+class AnalyticsRequestException implements Exception {
+  final String message;
+
+  const AnalyticsRequestException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class AnalyticsService {
   final String baseUrl = ApiConfig.baseUrl;
+  static const _requestTimeout = Duration(seconds: 30);
 
-  Future<DashboardData?> getDashboard(String token, {int days = 30}) async {
+  Future<DashboardData> getDashboard(String token, {int days = 30}) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/analytics/dashboard?days=$days'),
@@ -15,7 +25,7 @@ class AnalyticsService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      );
+      ).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -23,9 +33,15 @@ class AnalyticsService {
           return DashboardData.fromJson(data);
         }
       }
-      return null;
-    } catch (e) {
-      return null;
+      throw AnalyticsRequestException(
+        _serverError('Could not load dashboard', response),
+      );
+    } on AnalyticsRequestException {
+      rethrow;
+    } catch (_) {
+      throw AnalyticsRequestException(
+        'Cannot reach the billing server. Check your internet connection and sign in again.',
+      );
     }
   }
 
@@ -37,7 +53,7 @@ class AnalyticsService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      );
+      ).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -47,13 +63,19 @@ class AnalyticsService {
               .toList();
         }
       }
-      return [];
-    } catch (e) {
-      return [];
+      throw AnalyticsRequestException(
+        _serverError('Could not load bill history', response),
+      );
+    } on AnalyticsRequestException {
+      rethrow;
+    } catch (_) {
+      throw AnalyticsRequestException(
+        'Cannot reach the billing server. Check your internet connection and sign in again.',
+      );
     }
   }
 
-  Future<Map<String, dynamic>?> saveBill(
+  Future<Map<String, dynamic>> saveBill(
     String token, {
     required double totalAmount,
     required List<Map<String, dynamic>> items,
@@ -80,17 +102,41 @@ class AnalyticsService {
           'bill_type': billType,
           'billing_source': billingSource,
         }),
-      );
+      ).timeout(_requestTimeout);
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        return data['success'] == true
-            ? Map<String, dynamic>.from(data as Map)
-            : null;
+        if (data is Map && data['success'] == true && data['bill_id'] != null) {
+          return Map<String, dynamic>.from(data);
+        }
       }
-      return null;
-    } catch (e) {
-      return null;
+      throw AnalyticsRequestException(
+        _serverError('Bill could not be saved', response),
+      );
+    } on AnalyticsRequestException {
+      rethrow;
+    } catch (_) {
+      throw AnalyticsRequestException(
+        'Cannot reach the billing server. Check your internet connection and sign in again.',
+      );
     }
+  }
+
+  String _serverError(String prefix, http.Response response) {
+    String detail = '';
+    try {
+      final decoded = json.decode(response.body);
+      if (decoded is Map) {
+        final value = decoded['detail'] ?? decoded['message'];
+        if (value != null) detail = value.toString();
+      }
+    } catch (_) {
+      detail = response.body.trim();
+    }
+
+    if (response.statusCode == 401) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    return detail.isEmpty ? '$prefix (server error ${response.statusCode}).' : '$prefix: $detail';
   }
 }

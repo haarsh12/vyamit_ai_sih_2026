@@ -272,14 +272,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final items = billData['items'] as List? ?? const [];
     return items.map((item) {
       final line = Map<String, dynamic>.from(item as Map);
+      final quantity = _asNumber(
+        line['quantity'] ?? line['qty'] ?? line['qty_display'],
+      );
+      final safeQuantity = quantity > 0 ? quantity : 1.0;
+      final price = _asNumber(line['price'] ?? line['rate']);
       return {
-        'name': line['name'],
-        'quantity': line['qty'] ?? line['quantity'] ?? 1,
+        'name': (line['name'] ?? line['en'] ?? 'Item').toString(),
+        'quantity': safeQuantity,
         'unit': line['unit'] ?? 'unit',
-        'price': line['price'] ?? line['rate'] ?? 0,
-        'total': line['total'] ?? 0,
+        'price': double.parse(price.toStringAsFixed(2)),
+        'total': double.parse((safeQuantity * price).toStringAsFixed(2)),
       };
     }).toList();
+  }
+
+  double _asNumber(dynamic value) {
+    if (value is num) return value.toDouble();
+    final text = value?.toString() ?? '';
+    return double.tryParse(text) ??
+        double.tryParse(text.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+        0;
   }
 
   Future<int?> _savePrintedBill(
@@ -290,17 +303,27 @@ class _HomeScreenState extends State<HomeScreen> {
       final serverBillId = billData['bill_id'];
       return serverBillId is num ? serverBillId.toInt() : null;
     }
-    if (token == null) return null;
+    if (token == null) {
+      throw const AnalyticsRequestException(
+        'Your session has expired. Please sign in again.',
+      );
+    }
+
+    final items = _billItemsForApi(billData);
+    final totalAmount = items.fold<double>(
+      0,
+      (sum, item) => sum + (item['total'] as double),
+    );
 
     final result = await _analyticsService.saveBill(
       token,
-      totalAmount: (billData['total'] as num).toDouble(),
-      items: _billItemsForApi(billData),
+      totalAmount: double.parse(totalAmount.toStringAsFixed(2)),
+      items: items,
       customerName: billData['customerName'] as String?,
       paymentMethod: 'cash',
       billingSource: billData['billing_source'] as String? ?? 'voice',
     );
-    final billId = result?['bill_id'];
+    final billId = result['bill_id'];
     return billId is num ? billId.toInt() : null;
   }
 
@@ -400,13 +423,20 @@ class _HomeScreenState extends State<HomeScreen> {
           await _printerService.printBill(billData, shopDetails, qrCodePath);
 
       if (result == "Success") {
-        final billId = await _savePrintedBill(billData, token);
+        int? billId;
+        String? saveError;
+        try {
+          billId = await _savePrintedBill(billData, token);
+        } catch (error) {
+          saveError = error.toString();
+          debugPrint('Bill history save failed: $saveError');
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               billId == null
-                  ? 'Bill printed, but it could not be saved to history.'
+                  ? 'Bill printed, but history was not saved. ${saveError ?? 'Please try again.'}'
                   : '✅ Print successful! Bill saved.',
             ),
             backgroundColor: billId == null ? Colors.red : null,
@@ -436,7 +466,19 @@ class _HomeScreenState extends State<HomeScreen> {
       // For now, I will allow saving as PDF fallback if connection drops suddenly
       await _printPdf(billData);
 
-      final billId = await _savePrintedBill(billData, token);
+      int? billId;
+      try {
+        billId = await _savePrintedBill(billData, token);
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Bill file created, but history was not saved. $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
 
       setState(() {
         _pastBills.insert(0, billData);

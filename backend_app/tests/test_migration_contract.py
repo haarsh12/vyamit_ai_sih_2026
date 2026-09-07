@@ -18,14 +18,6 @@ def test_verified_customer_migrations_follow_the_existing_chain() -> None:
     assert 'down_revision = "20260824_0007"' in bill_type
 
 
-def test_billing_source_migration_follows_bill_type_migration() -> None:
-    migration = (_VERSIONS / "20260907_0009_add_bill_billing_source.py").read_text(encoding="utf-8")
-
-    assert 'revision = "20260907_0009"' in migration
-    assert 'down_revision = "20260824_0008"' in migration
-    assert '"billing_source"' in migration
-
-
 def test_initial_migration_enables_pgvector_before_schema_creation() -> None:
     content = (_VERSIONS / "20260818_0001_initial_schema.py").read_text(encoding="utf-8")
 

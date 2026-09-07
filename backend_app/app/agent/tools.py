@@ -11,6 +11,7 @@ from app.db.models import Customer, User
 from app.db.session import get_agent_db_session
 from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
+from app.domain.billing_source import billing_source_from_items
 from app.domain.doctor_prescriptions import format_dictation
 from app.domain.gst import gst_billing_service
 from app.domain.voice_inventory import parse_inventory_dictation
@@ -201,7 +202,7 @@ class VyamitAssistant(Agent):
                     "items": bill.items,
                     "payment_method": bill.payment_method,
                     "bill_type": bill.bill_type,
-                    "billing_source": bill.billing_source,
+                    "billing_source": billing_source_from_items(bill.items),
                     "bill_date": bill.bill_date.isoformat(),
                 } for bill in bills],
                 "returned_count": len(bills),

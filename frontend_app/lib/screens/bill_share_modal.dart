@@ -169,7 +169,11 @@ class _BillShareModalState extends State<BillShareModal> {
 
   Future<int?> _saveVirtualBill() async {
     final token = await AuthTokenStore().read();
-    if (token == null) return null;
+    if (token == null) {
+      throw const AnalyticsRequestException(
+        'Your session has expired. Please sign in again.',
+      );
+    }
 
     final items = _billItemsForApi();
     final total = items.fold<double>(
@@ -186,7 +190,7 @@ class _BillShareModalState extends State<BillShareModal> {
       billType: 'virtual',
       billingSource: widget.billingSource,
     );
-    final billId = result?['bill_id'];
+    final billId = result['bill_id'];
     return billId is num ? billId.toInt() : null;
   }
 

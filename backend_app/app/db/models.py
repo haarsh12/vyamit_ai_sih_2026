@@ -104,7 +104,6 @@ class Bill(TimestampMixin, Base):
     verified_customer_id: Mapped[int | None] = mapped_column(ForeignKey("verified_customers.id", ondelete="SET NULL"))
     payment_method: Mapped[str] = mapped_column(String(30), nullable=False, default="cash")
     bill_type: Mapped[str] = mapped_column(String(20), nullable=False, default="printed")  # "printed" or "virtual"
-    billing_source: Mapped[str] = mapped_column(String(20), nullable=False, default="voice")  # "voice" or "frequent"
     bill_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
     __table_args__ = (
@@ -112,7 +111,6 @@ class Bill(TimestampMixin, Base):
         Index("ix_bills_owner_category_date", "owner_id", "shop_category", "bill_date"),
         Index("ix_bills_verified_customer_id", "verified_customer_id"),
         Index("ix_bills_bill_type", "bill_type"),
-        Index("ix_bills_billing_source", "billing_source"),
     )
 
 

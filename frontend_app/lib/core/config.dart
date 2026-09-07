@@ -1,33 +1,24 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-
 class ApiConfig {
-  // 🚀 PRODUCTION - Render Backend
-  static const String _productionUrl = "https://ideathon-vyamit.onrender.com";
+  // ============================================
+  // ENVIRONMENT CONFIGURATION
+  // ============================================
   
-  // 🧪 LOCAL DEVELOPMENT URLs
-  static const String _emulatorUrl = "http://10.0.2.2:8000";
-  static const String _realDeviceUrl = "http://10.147.4.207:8000";  // Replace with your laptop's local IP
-  static const String _localUrl = "http://localhost:8000";
+  // Production URL (uncomment for production)
+  // static const String _productionUrl = "https://ideathon-vyamit.onrender.com";
+  
+  // Development URL (comment out for production)
+  static const String _developmentUrl = "http://10.147.4.207:8000";
+  
+  static const String _configuredUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    // defaultValue: _productionUrl,  // Production mode
+    defaultValue: _developmentUrl,     // Development mode
+  );
 
-  static String get baseUrl {
-    // 🧪 ACTIVE: DEVELOPMENT MODE - Real Device via USB
-    if (kReleaseMode) {
-      return _productionUrl;  // Use production in release mode
-    }
-    
-    if (Platform.isAndroid) {
-      return _realDeviceUrl;  // Real phone connected via USB
-      // return _emulatorUrl;  // Uncomment for emulator
-    }
-    
-    return _localUrl;  // Web/Windows
-    
-    // 🚀 TO SWITCH TO PRODUCTION: Comment above code and uncomment below
-    /*
-    return _productionUrl;
-    */
-  }
+  static String get baseUrl => _configuredUrl.replaceFirst(RegExp(r'/+$'), '');
+
+  // For local development, pass a known reachable origin at build/run time:
+  // flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
 
   /// Convert the HTTP API origin to its matching WebSocket origin.
   static String get wsUrl {
