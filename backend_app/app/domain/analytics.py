@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AuditEvent, Bill, IdempotencyKey, Item, SaleItem
 from app.db.tenant import TenantContext
+from app.domain.customers import customer_service
 from app.repositories.analytics import AnalyticsRepository
+from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.schemas.analytics import BillCreate
 
 
@@ -25,6 +27,7 @@ class AnalyticsService:
         *,
         idempotency_key: str,
         commit: bool = True,
+        verified_customer_id: int | None = None,
     ) -> dict[str, Any]:
         action = "bill.create"
         existing = await session.scalar(select(IdempotencyKey).where(
@@ -44,10 +47,22 @@ class AnalyticsService:
             {"name": item.name.strip(), "quantity": str(item.quantity), "unit": item.unit.strip(), "price": str(item.price), "total": str(item.total)}
             for item in payload.items
         ]
+        
+        # Link to verified customer if provided
+        final_verified_customer_id = verified_customer_id
+        
+        # If no explicit verified_customer_id but customer_name exists, try to find match
+        if not final_verified_customer_id and payload.customer_name:
+            customer_repo = VerifiedCustomerRepository(session)
+            verified_customer = await customer_repo.find_by_exact_name(tenant, payload.customer_name)
+            if verified_customer:
+                final_verified_customer_id = verified_customer.id
+        
         bill = Bill(
             owner_id=tenant.owner_id, shop_category=tenant.shop_category, total_amount=payload.total_amount,
             total_items=len(payload.items), items=items, customer_phone=payload.customer_phone,
-            customer_name=payload.customer_name, payment_method=payload.payment_method.strip(), bill_date=now,
+            customer_name=payload.customer_name, verified_customer_id=final_verified_customer_id,
+            payment_method=payload.payment_method.strip(), bill_type=payload.bill_type, bill_date=now,
         )
         session.add(bill)
         await session.flush()
@@ -58,15 +73,28 @@ class AnalyticsService:
                 quantity=item.quantity, unit=item.unit.strip(), price_per_unit=item.price,
                 total_price=item.total, sale_date=now, hour_of_day=now.hour,
             ))
+        
+        # Update existing Customer aggregate (for phone-based tracking)
         await repository.upsert_customer_purchase(
             tenant=tenant, phone_number=payload.customer_phone, name=payload.customer_name,
             amount=payload.total_amount, purchased_at=now,
         )
+        
+        # Update VerifiedCustomer stats if linked
+        if final_verified_customer_id:
+            await customer_service.update_customer_stats_after_bill(
+                session,
+                tenant,
+                final_verified_customer_id,
+                amount=payload.total_amount,
+                bill_date=now,
+            )
+        
         result = {"success": True, "bill_id": bill.id, "message": "Bill saved successfully"}
         request_key.response, request_key.status_code = result, status.HTTP_201_CREATED
         session.add(AuditEvent(
             created_at=now, owner_id=tenant.owner_id, session_id=tenant.session_id,
-            action=action, outcome="success", metadata_={"bill_id": bill.id},
+            action=action, outcome="success", metadata_={"bill_id": bill.id, "verified_customer_id": final_verified_customer_id},
         ))
         # Workflow confirmation adds its draft state to this same transaction.
         # Ordinary compatibility endpoints retain the existing commit behaviour.
@@ -83,7 +111,8 @@ class AnalyticsService:
             "success": True, "bills": [{
                 "id": bill.id, "total_amount": float(bill.total_amount), "total_items": bill.total_items,
                 "items": bill.items, "customer_phone": bill.customer_phone, "customer_name": bill.customer_name,
-                "payment_method": bill.payment_method, "bill_date": bill.bill_date.isoformat(),
+                "payment_method": bill.payment_method, "bill_type": bill.bill_type,
+                "bill_date": bill.bill_date.isoformat(),
                 "created_at": bill.created_at.isoformat(),
             } for bill in bills], "total": len(bills), "limit": safe_limit, "offset": safe_offset,
         }

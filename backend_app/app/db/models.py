@@ -101,12 +101,16 @@ class Bill(TimestampMixin, Base):
     items: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     customer_phone: Mapped[str | None] = mapped_column(String(20), index=True)
     customer_name: Mapped[str | None] = mapped_column(String(120))
+    verified_customer_id: Mapped[int | None] = mapped_column(ForeignKey("verified_customers.id", ondelete="SET NULL"))
     payment_method: Mapped[str] = mapped_column(String(30), nullable=False, default="cash")
+    bill_type: Mapped[str] = mapped_column(String(20), nullable=False, default="printed")  # "printed" or "virtual"
     bill_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
     __table_args__ = (
         CheckConstraint("total_amount >= 0", name="bill_total_non_negative"),
         Index("ix_bills_owner_category_date", "owner_id", "shop_category", "bill_date"),
+        Index("ix_bills_verified_customer_id", "verified_customer_id"),
+        Index("ix_bills_bill_type", "bill_type"),
     )
 
 
@@ -151,6 +155,35 @@ class Customer(TimestampMixin, Base):
             name="uq_customers_owner_category_phone",
         ),
         Index("ix_customers_owner_category_name", "owner_id", "shop_category", "name"),
+    )
+
+
+class VerifiedCustomer(TimestampMixin, Base):
+    __tablename__ = "verified_customers"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    shop_category: Mapped[str] = mapped_column(String(60), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    phone_number: Mapped[str | None] = mapped_column(String(20))
+    name_embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
+    embedding_source_hash: Mapped[str | None] = mapped_column(String(64))
+    embedding_model: Mapped[str | None] = mapped_column(String(120))
+    embedding_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    total_bills: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_spent: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    last_purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("owner_id", "shop_category", "name", name="uq_verified_customers_owner_category_name"),
+        Index("ix_verified_customers_owner_category", "owner_id", "shop_category"),
+        Index("ix_verified_customers_name", "name"),
+        Index(
+            "ix_verified_customers_embedding_hnsw",
+            "name_embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"name_embedding": "vector_cosine_ops"},
+        ),
     )
 
 

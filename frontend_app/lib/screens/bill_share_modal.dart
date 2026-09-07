@@ -3,12 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../models/shop_details.dart';
+import '../models/customer.dart';
+import '../widgets/customer_verification_dialog.dart';
+import '../services/customer_service.dart';
+import '../services/api_client.dart';
 
 class BillShareModal extends StatefulWidget {
   final List<Map<String, dynamic>> billItems;
   final double totalAmount;
   final ShopDetails shopDetails;
   final String? customerName;
+  final CustomerVerificationSuggestion? verificationSuggestion;
 
   const BillShareModal({
     super.key,
@@ -16,6 +21,7 @@ class BillShareModal extends StatefulWidget {
     required this.totalAmount,
     required this.shopDetails,
     this.customerName,
+    this.verificationSuggestion,
   });
 
   @override
@@ -25,13 +31,24 @@ class BillShareModal extends StatefulWidget {
 class _BillShareModalState extends State<BillShareModal> {
   late final TextEditingController _customerNameController;
   final TextEditingController _mobileController = TextEditingController();
+  late final CustomerService _customerService;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _customerService = CustomerService(ApiClient());
     _customerNameController = TextEditingController(
-      text: widget.customerName ?? 'Walk-in'
+      text: widget.customerName != null && !_isGenericName(widget.customerName!) 
+          ? widget.customerName
+          : 'Walk-in'
     );
+  }
+
+  bool _isGenericName(String name) {
+    final generic = ['customer', 'guest', 'user', 'anonymous', 'unknown', 'unnamed',
+                     'walk-in', 'walkin', 'retail', 'cash', 'n/a', 'na'];
+    return generic.contains(name.toLowerCase().trim());
   }
 
   @override
@@ -134,6 +151,8 @@ class _BillShareModalState extends State<BillShareModal> {
         if (mounted) {
           Navigator.pop(context);
           _showSuccess('Opening SMS app...');
+          // Show customer verification dialog after sending
+          _showCustomerVerificationAfterSend();
         }
       } else {
         _showError('SMS app not available');
@@ -178,6 +197,8 @@ class _BillShareModalState extends State<BillShareModal> {
         if (launched && mounted) {
           Navigator.pop(context);
           _showSuccess('Opening WhatsApp...');
+          // Show customer verification dialog after sending
+          _showCustomerVerificationAfterSend();
         } else {
           _showError('Failed to open WhatsApp');
         }
@@ -191,6 +212,8 @@ class _BillShareModalState extends State<BillShareModal> {
           if (mounted) {
             Navigator.pop(context);
             _showSuccess('Opening WhatsApp...');
+            // Show customer verification dialog after sending
+            _showCustomerVerificationAfterSend();
           }
         } else {
           _showError('WhatsApp is not installed');
@@ -199,6 +222,64 @@ class _BillShareModalState extends State<BillShareModal> {
     } catch (e) {
       print('❌ WhatsApp launch error: $e');
       _showError('Failed to open WhatsApp: $e');
+    }
+  }
+
+  void _showCustomerVerificationAfterSend() {
+    // Check if we should show verification dialog
+    if (widget.verificationSuggestion != null && 
+        widget.verificationSuggestion!.shouldVerify) {
+      // Delay to allow modal to close first
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => CustomerVerificationDialog(
+              suggestion: widget.verificationSuggestion!,
+              onYes: () => _handleCustomerVerification(true),
+              onNo: () => _handleCustomerVerification(false),
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _handleCustomerVerification(bool shouldSave) async {
+    Navigator.pop(context); // Close verification dialog
+
+    if (!shouldSave || widget.verificationSuggestion == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await _customerService.verifyCustomer(
+        customerName: widget.verificationSuggestion!.customerName!,
+        phoneNumber: _mobileController.text.trim().isNotEmpty 
+            ? _mobileController.text.trim() 
+            : null,
+        mergeWithExistingId: widget.verificationSuggestion!.isDuplicate
+            ? widget.verificationSuggestion!.existingCustomerId
+            : null,
+      );
+
+      if (mounted) {
+        _showSuccess(result['message'] ?? 'Customer saved successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to save customer: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

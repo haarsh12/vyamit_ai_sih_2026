@@ -8,6 +8,12 @@ import '../widgets/dashboard_summary_card.dart';
 import '../widgets/top_selling_items_widget.dart';
 import '../widgets/category_pie_chart.dart';
 import '../widgets/peak_hours_chart.dart';
+import '../widgets/bill_type_badge.dart';
+import '../models/customer.dart';
+import '../services/api_client.dart';
+import '../services/customer_service.dart';
+import 'verified_customers_screen.dart';
+import 'customer_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -24,14 +30,17 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final AnalyticsService _analyticsService = AnalyticsService();
+  late final CustomerService _customerService;
   DashboardData? _dashboardData;
   List<BillHistory> _bills = [];
+  List<VerifiedCustomer> _verifiedCustomers = [];
   bool _isLoading = true;
   String? _token;
 
   @override
   void initState() {
     super.initState();
+    _customerService = CustomerService(ApiClient());
     _loadData();
   }
 
@@ -43,10 +52,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (_token != null) {
       final dashboard = await _analyticsService.getDashboard(_token!);
       final bills = await _analyticsService.getBills(_token!);
+      final customers = await _customerService.getVerifiedCustomers(limit: 10);
       
       setState(() {
         _dashboardData = dashboard;
         _bills = bills;
+        _verifiedCustomers = customers;
         _isLoading = false;
       });
     } else {
@@ -159,6 +170,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     
                     const SizedBox(height: 24),
                     
+                    // Verified Customers Section
+                    _buildVerifiedCustomersSection(),
+                    
+                    const SizedBox(height: 24),
+                    
                     // Bills History Section
                     const Text(
                       'Bill History',
@@ -226,26 +242,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       width: 48,
                                       height: 48,
                                       decoration: BoxDecoration(
-                                        color: AppColors.lightGreenBg,
+                                        color: bill.billType == 'virtual' 
+                                          ? Colors.blue[50] 
+                                          : AppColors.lightGreenBg,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: const Icon(
-                                        Icons.receipt_long,
-                                        color: AppColors.primaryGreen,
+                                      child: Icon(
+                                        bill.billType == 'virtual' 
+                                          ? Icons.phone_android 
+                                          : Icons.print,
+                                        color: bill.billType == 'virtual' 
+                                          ? Colors.blue 
+                                          : AppColors.primaryGreen,
                                         size: 24,
                                       ),
                                     ),
                                     const SizedBox(width: 16),
-                                    Expanded(
+                                      Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            'Bill #${bill.id}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Bill #${bill.id}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              BillTypeBadge(billType: bill.billType),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
@@ -300,6 +328,161 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildVerifiedCustomersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Verified Customers',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const VerifiedCustomersScreen(),
+                  ),
+                ).then((_) => _loadData());
+              },
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text('View All'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryGreen,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        if (_verifiedCustomers.isEmpty)
+          Card(
+            elevation: 1,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.people_outline,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No verified customers yet',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Send bills via WhatsApp/SMS and save customers',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _verifiedCustomers.length,
+              itemBuilder: (context, index) {
+                final customer = _verifiedCustomers[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CustomerDetailScreen(
+                          customerId: customer.id,
+                          customerName: customer.name,
+                        ),
+                      ),
+                    ).then((_) => _loadData());
+                  },
+                  child: Container(
+                    width: 140,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: AppColors.lightGreenBg,
+                            child: Text(
+                              customer.name[0].toUpperCase(),
+                              style: const TextStyle(
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            customer.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${customer.totalBills} bills',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 

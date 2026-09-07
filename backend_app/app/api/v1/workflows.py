@@ -58,4 +58,5 @@ async def confirm_bill_draft(
         draft_id,
         expected_version=payload.expected_version,
         idempotency_key=idempotency_key.strip(),
+        verified_customer_id=payload.verified_customer_id,
     )

@@ -15,6 +15,8 @@ from app.domain.doctor_prescriptions import format_dictation
 from app.domain.gst import gst_billing_service
 from app.domain.voice_inventory import parse_inventory_dictation
 from app.domain.workflows import workflow_service
+from app.repositories.verified_customers import VerifiedCustomerRepository
+from app.retrieval.customers import customer_search_service
 from app.retrieval.inventory import inventory_search_service
 from app.schemas.analytics import BillCreate
 
@@ -101,6 +103,130 @@ class VyamitAssistant(Agent):
                 "phone_last_four": customer.phone_number[-4:], "total_bills": customer.total_bills,
                 "last_purchase_date": customer.last_purchase_date.isoformat() if customer.last_purchase_date else None,
             } for customer in rows]}
+
+    @function_tool()
+    async def search_verified_customers(self, query: str) -> dict[str, object]:
+        """Search verified customers by name using hybrid exact/fuzzy/semantic matching.
+        
+        Use this tool when the user asks about a specific customer by name, or wants to
+        see bill history for a customer. Returns customer details including purchase stats.
+        """
+
+        import logging
+        logger = logging.getLogger("vyamit.agent.tools")
+        
+        clean_query = query.strip()
+        if not clean_query:
+            return {"matches": []}
+        
+        async with get_agent_db_session() as session:
+            matches = await customer_search_service.search(session, self.tenant, clean_query, limit=5)
+            result = {
+                "matches": [match.to_tool_payload() for match in matches],
+                "query": clean_query,
+            }
+            logger.info(
+                "search_verified_customers_result",
+                extra={
+                    "query": clean_query,
+                    "matches_count": len(matches),
+                    "result": result,
+                    "owner_id": self.tenant.owner_id,
+                    "shop_category": self.tenant.shop_category,
+                }
+            )
+            return result
+
+    @function_tool()
+    async def get_customer_bill_history(self, customer_name: str, recent_bills_count: int = 5) -> dict[str, object]:
+        """Get recent bill history for a verified customer by their name.
+        
+        Use this when the user asks about what a specific customer purchased previously,
+        or wants to see their purchase history. Returns the most recent bills.
+        
+        Args:
+            customer_name: The customer's name to look up
+            recent_bills_count: Number of recent bills to return (1-20, default 5)
+        """
+
+        import logging
+        logger = logging.getLogger("vyamit.agent.tools")
+        
+        clean_name = customer_name.strip()
+        if not clean_name:
+            return {"found": False, "message": "Customer name is required"}
+        
+        safe_limit = min(max(recent_bills_count, 1), 20)
+        
+        async with get_agent_db_session() as session:
+            repository = VerifiedCustomerRepository(session)
+            
+            # Try to find the customer by exact name first
+            customer = await repository.find_by_exact_name(self.tenant, clean_name)
+            
+            if not customer:
+                # If not found, try searching
+                matches = await customer_search_service.search(session, self.tenant, clean_name, limit=1)
+                if matches:
+                    customer = matches[0].customer
+            
+            if not customer:
+                logger.info(
+                    "get_customer_bill_history_not_found",
+                    extra={
+                        "customer_name": clean_name,
+                        "owner_id": self.tenant.owner_id,
+                    }
+                )
+                return {
+                    "found": False,
+                    "message": f"No verified customer found with name '{clean_name}'",
+                }
+            
+            # Get bill history
+            bills = await repository.get_bill_history(
+                self.tenant,
+                customer.id,
+                limit=safe_limit,
+                offset=0,
+            )
+            
+            result = {
+                "found": True,
+                "customer": {
+                    "id": customer.id,
+                    "name": customer.name,
+                    "phone_number": customer.phone_number,
+                    "total_bills": customer.total_bills,
+                    "total_spent": float(customer.total_spent),
+                    "last_purchase_date": (
+                        customer.last_purchase_date.isoformat()
+                        if customer.last_purchase_date
+                        else None
+                    ),
+                },
+                "bills": [{
+                    "id": bill.id,
+                    "total_amount": float(bill.total_amount),
+                    "total_items": bill.total_items,
+                    "items": bill.items,
+                    "payment_method": bill.payment_method,
+                    "bill_date": bill.bill_date.isoformat(),
+                } for bill in bills],
+                "returned_count": len(bills),
+            }
+            
+            logger.info(
+                "get_customer_bill_history_success",
+                extra={
+                    "customer_id": customer.id,
+                    "customer_name": customer.name,
+                    "bills_count": len(bills),
+                    "owner_id": self.tenant.owner_id,
+                }
+            )
+            
+            return result
 
     @function_tool()
     async def get_sales_summary(self, days: int = 30) -> dict[str, object]:
