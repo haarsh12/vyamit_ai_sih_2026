@@ -308,12 +308,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         size: 24,
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                      Expanded(
+                                    const SizedBox(width: 12),
+                                    Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Row(
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
                                             children: [
                                               Text(
                                                 'Bill #${bill.id}',
@@ -322,9 +326,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   fontSize: 16,
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
                                               BillTypeBadge(billType: bill.billType),
-                                              const SizedBox(width: 6),
                                               BillingSourceBadge(
                                                 billingSource: bill.billingSource,
                                               ),
@@ -351,26 +353,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         ],
                                       ),
                                     ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '₹${_formatNumber(bill.totalAmount)}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: AppColors.primaryGreen,
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 70,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              '₹${_formatNumber(bill.totalAmount)}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                                color: AppColors.primaryGreen,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${bill.totalItems} items',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 11,
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${bill.totalItems} items',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 11,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),

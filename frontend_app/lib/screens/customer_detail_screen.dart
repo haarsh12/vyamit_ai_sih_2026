@@ -304,7 +304,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ? Colors.blue
                   : Colors.green,
         ),
-        title: Row(
+        title: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               'Bill #${bill.id}',
@@ -313,9 +316,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 fontSize: 16,
               ),
             ),
-            const SizedBox(width: 8),
             BillTypeBadge(billType: bill.billType),
-            const SizedBox(width: 6),
             BillingSourceBadge(billingSource: bill.billingSource),
           ],
         ),

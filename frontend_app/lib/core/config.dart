@@ -7,7 +7,7 @@ class ApiConfig {
   // static const String _productionUrl = "https://ideathon-vyamit.onrender.com";
   
   // Development URL (comment out for production)
-  static const String _developmentUrl = "http://10.147.4.207:8000";
+  static const String _developmentUrl = "http://192.168.225.207:8000";
   
   static const String _configuredUrl = String.fromEnvironment(
     'API_BASE_URL',

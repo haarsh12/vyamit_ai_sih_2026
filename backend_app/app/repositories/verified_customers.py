@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import and_, func, or_, select
@@ -25,7 +25,13 @@ class VerifiedCustomerRepository:
         name: str,
         phone_number: str | None = None,
     ) -> VerifiedCustomer:
-        """Create a new verified customer for the authenticated tenant."""
+        """Create a new verified customer for the authenticated tenant.
+
+        The original verified-customer migration predates database timestamp
+        defaults.  Set both timestamps here so this write works on existing
+        deployments as well as freshly-created databases.
+        """
+        now = datetime.now(UTC)
         customer = VerifiedCustomer(
             owner_id=tenant.owner_id,
             shop_category=tenant.shop_category,
@@ -33,6 +39,8 @@ class VerifiedCustomerRepository:
             phone_number=phone_number.strip() if phone_number else None,
             total_bills=0,
             total_spent=Decimal("0"),
+            created_at=now,
+            updated_at=now,
         )
         self.session.add(customer)
         await self.session.flush()
