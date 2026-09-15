@@ -179,5 +179,5 @@ $RECYCLE.BIN/
 node_modules/
 
 # Documentation with sensitive info (optional)
-*DEPLOYMENT*.md
 *CREDENTIALS*.md
+# Note: Deployment guides are now included for Render deployment

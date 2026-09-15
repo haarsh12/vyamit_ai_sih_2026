@@ -1,0 +1,107 @@
+services:
+  # FastAPI Web Service
+  - type: web
+    name: vyamit-backend-api
+    runtime: python
+    plan: starter  # Change to 'free' for free tier or 'starter'/'standard' for paid
+    region: singapore  # Choose: oregon, frankfurt, singapore, ohio
+    branch: main  # Change to your default branch name if different
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    healthCheckPath: /health
+    envVars:
+      # Application Configuration
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Vyamit Backend
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 10000
+      
+      # CORS - Update with your actual frontend URLs
+      - key: CORS_ORIGINS
+        value: https://your-frontend-domain.com,https://your-app.com
+      
+      # Security - MUST be set in Render Dashboard (Secret)
+      - key: JWT_SECRET_KEY
+        sync: false  # Must be manually set in dashboard
+      - key: JWT_ACCESS_TOKEN_MINUTES
+        value: 10080  # 7 days
+      
+      # Database - MUST be set in Render Dashboard (Secret)
+      - key: DATABASE_URL
+        sync: false  # Set your Supabase PostgreSQL connection string
+      - key: SUPABASE_URL
+        sync: false  # Your Supabase project URL
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false  # Optional service role key
+      
+      # LiveKit Configuration - MUST be set in Render Dashboard (Secret)
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: LIVEKIT_AGENT_NAME
+        value: vyamit-voice
+      
+      # Google Cloud / Vertex AI - MUST be set in Render Dashboard (Secret)
+      # Note: Set GOOGLE_CREDENTIALS_JSON as a secret env var with the entire JSON content
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/google-service-account.json
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_CLOUD_LOCATION
+        value: global
+      - key: GOOGLE_STT_MODEL
+        value: chirp
+      - key: GOOGLE_STT_LANGUAGES
+        value: hi-IN,mr-IN,en-IN
+      - key: VERTEX_GEMINI_MODEL
+        sync: false
+      - key: VERTEX_EMBEDDING_MODEL
+        value: text-embedding-004
+      - key: VERTEX_EMBEDDING_DIMENSION
+        value: 768
+      
+      # Voice and TTS Configuration - MUST be set in Render Dashboard (Secret)
+      - key: CARTESIA_API_KEY
+        sync: false
+      - key: CARTESIA_TTS_MODEL
+        value: sonic-3
+      - key: CARTESIA_VOICE_ID
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: MISTRAL_MODEL
+        sync: false
+      - key: ENABLE_ENHANCED_NOISE_CANCELLATION
+        value: false
+      
+      # SMS Integration (Optional) - Set in Render Dashboard if using
+      - key: FAST2SMS_API_KEY
+        sync: false
+      - key: FAST2SMS_BASE_URL
+        value: https://www.fast2sms.com/dev/bulkV2
+      - key: OTP_DEMO_MODE
+        value: false
+      - key: LOG_OTP_CODES
+        value: false
+
+  # LiveKit Agent Background Worker (Optional - deploy separately if needed)
+  # - type: worker
+  #   name: vyamit-livekit-agent
+  #   runtime: python
+  #   plan: starter
+  #   region: singapore
+  #   branch: main
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: python -m app.agent.runner dev
+  #   envVars:
+  #     # Copy all the same environment variables from the web service above
+  #     # ... (omitted for brevity)

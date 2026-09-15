@@ -1,0 +1,178 @@
+================================================================================
+  VYAMIT BACKEND - RENDER DEPLOYMENT QUICK START
+================================================================================
+
+🎯 GOAL: Deploy your FastAPI backend to Render cloud in ~30 minutes
+
+📋 PREREQUISITES:
+   ✓ GitHub account with this repo
+   ✓ Render account (free at render.com)
+   ✓ All API keys ready (Supabase, Google Cloud, LiveKit, etc.)
+
+================================================================================
+  STEP 1: VALIDATE ENVIRONMENT (Local - 2 min)
+================================================================================
+
+1. Open terminal in backend_app directory
+2. Run validation:
+
+   python check_env.py
+
+3. Fix any missing/invalid environment variables shown in red
+
+================================================================================
+  STEP 2: COMMIT & PUSH (2 min)
+================================================================================
+
+1. Stage all changes:
+   git add .
+
+2. Commit:
+   git commit -m "Prepare backend for Render deployment"
+
+3. Push to GitHub:
+   git push origin main
+
+================================================================================
+  STEP 3: CREATE WEB SERVICE ON RENDER (10 min)
+================================================================================
+
+1. Go to: https://dashboard.render.com
+
+2. Click: "New +" → "Web Service"
+
+3. Connect GitHub → Select your repository
+
+4. Configure:
+   - Name: vyamit-backend-api
+   - Region: Singapore (or closest to you)
+   - Branch: main
+   - Runtime: Python 3
+   - Build Command: pip install -r requirements.txt
+   - Start Command: bash start.sh
+
+5. Advanced Settings:
+   - Health Check Path: /health
+
+================================================================================
+  STEP 4: SET ENVIRONMENT VARIABLES (10 min)
+================================================================================
+
+Click "Advanced" → "Add Environment Variable" and add:
+
+REQUIRED (must set these):
+   - JWT_SECRET_KEY
+   - DATABASE_URL
+   - SUPABASE_URL
+   - GOOGLE_CREDENTIALS_JSON (paste entire JSON file content)
+   - GOOGLE_CLOUD_PROJECT
+   - VERTEX_GEMINI_MODEL
+   - LIVEKIT_URL
+   - LIVEKIT_API_KEY
+   - LIVEKIT_API_SECRET
+   - CARTESIA_API_KEY
+   - CARTESIA_VOICE_ID
+   - MISTRAL_API_KEY
+   - MISTRAL_MODEL
+   - CORS_ORIGINS (your frontend URLs)
+
+IMPORTANT:
+   - APP_ENV=production
+   - GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/google-service-account.json
+
+OPTIONAL:
+   - OTP_DEMO_MODE=true (if not using real SMS)
+   - FAST2SMS_API_KEY (if using SMS)
+
+See DEPLOYMENT_CHECKLIST.md for complete list!
+
+================================================================================
+  STEP 5: DEPLOY (5 min)
+================================================================================
+
+1. Click "Create Web Service"
+
+2. Wait for build to complete (~5-10 minutes first time)
+
+3. Watch logs for "Application startup complete"
+
+================================================================================
+  STEP 6: RUN MIGRATIONS (2 min)
+================================================================================
+
+1. In Render dashboard, go to your service
+
+2. Click "Shell" tab
+
+3. Run:
+   alembic upgrade head
+
+4. Wait for "Running upgrade -> head"
+
+================================================================================
+  STEP 7: TEST (5 min)
+================================================================================
+
+Visit these URLs (replace YOUR-APP with your service name):
+
+1. https://YOUR-APP.onrender.com/
+   Expected: {"status": "active", "system": "Vyamit Backend"}
+
+2. https://YOUR-APP.onrender.com/health
+   Expected: {"status": "ok", "database_configured": true}
+
+3. https://YOUR-APP.onrender.com/docs
+   Expected: Interactive API documentation
+
+================================================================================
+  STEP 8: UPDATE FRONTEND (2 min)
+================================================================================
+
+Update your Flutter app config:
+
+// lib/core/config.dart
+static const String baseUrl = 'https://YOUR-APP.onrender.com';
+
+Test login and core features!
+
+================================================================================
+  🎉 DONE! YOUR BACKEND IS LIVE!
+================================================================================
+
+📚 NEED MORE DETAILS?
+
+   - Full guide: RENDER_DEPLOYMENT.md
+   - Checklist: DEPLOYMENT_CHECKLIST.md
+   - Troubleshooting: See RENDER_DEPLOYMENT.md section
+
+🆘 SOMETHING WENT WRONG?
+
+   1. Check Render logs (Logs tab in dashboard)
+   2. Verify all environment variables are set
+   3. Check RENDER_DEPLOYMENT.md troubleshooting section
+   4. Visit: community.render.com for help
+
+💡 TIPS:
+
+   - Free tier sleeps after 15 min (30s wake time)
+   - Use Starter plan ($7/mo) for always-on production
+   - Auto-deploys on every git push
+   - One-click rollback if issues
+
+================================================================================
+  USEFUL COMMANDS
+================================================================================
+
+Generate JWT secret:
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+Validate environment:
+   python check_env.py
+
+View local logs:
+   python -m uvicorn app.main:app --reload
+
+Run tests:
+   python -m pytest -q
+
+================================================================================

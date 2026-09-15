@@ -27,12 +27,30 @@ the same package and Supabase PostgreSQL database:
 - Embeddings are generated for inventory and for names the owner explicitly
   adds to the verified-customer list. Customer phone numbers are never embedded.
 
+## Deployment to Render (Production)
+
+**📖 See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for complete deployment guide**
+
+Quick steps:
+1. Gather all required API keys and credentials (see checklist)
+2. Push code to GitHub
+3. Create Web Service on Render
+4. Set environment variables
+5. Deploy!
+
+Use [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) to track your progress.
+
+Validate your environment before deploying:
+```bash
+python check_env.py
+```
+
 ## Local setup
 
 1. Copy `.env.example` to `.env`; use values from your secret manager, never
    commit it. `GOOGLE_APPLICATION_CREDENTIALS` must point to a mounted service
    account JSON file.
-2. Install dependencies with `python -m pip install -e .`.
+2. Install dependencies with `python -m pip install -e .` or `pip install -r requirements.txt`.
 3. Apply the schema through Alembic, never `create_all` from application startup:
 
    ```powershell
