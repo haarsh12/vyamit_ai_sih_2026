@@ -2,13 +2,14 @@
 # PROJECT GITIGNORE
 # ==========================================================
 
-# ===================== IGNORE OLD BACKEND =================
-# Completely ignore the previous backend directories
+# ===================== IGNORE OLD/PREVIOUS PROJECTS =======
+# Completely ignore the previous backend and frontend directories
 previous_backend/
 previous_backend_reference_codebase/
 previous_livekit_working_backend_codebase/
 previous_frontend_changes/
 previous_backend_changes/
+previous_frontend_app/
 
 # ===================== PYTHON BACKEND =====================
 
