@@ -3,16 +3,16 @@ class ApiConfig {
   // ENVIRONMENT CONFIGURATION
   // ============================================
   
-  // Production URL (uncomment for production)
-  // static const String _productionUrl = "https://ideathon-vyamit.onrender.com";
+  // Production URL (Render deployment - ACTIVE)
+  static const String _productionUrl = "https://manthan4yuva-hackathon.onrender.com";
   
-  // Development URL (comment out for production)
-  static const String _developmentUrl = "http://10.40.209.207:8000";
+  // Development URL (Local backend - comment out for production)
+  // static const String _developmentUrl = "http://10.40.209.207:8000";
   
   static const String _configuredUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // defaultValue: _productionUrl,  // Production mode
-    defaultValue: _developmentUrl,     // Development mode
+    defaultValue: _productionUrl,  // Production mode (Render)
+    // defaultValue: _developmentUrl,     // Development mode (Local)
   );
 
   static String get baseUrl => _configuredUrl.replaceFirst(RegExp(r'/+$'), '');
