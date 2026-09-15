@@ -53,7 +53,7 @@ services:
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
       - key: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/secrets/google-service-account.json
+        value: /tmp/secrets/google-service-account.json
       - key: GOOGLE_CLOUD_PROJECT
         sync: false
       - key: GOOGLE_CLOUD_LOCATION
