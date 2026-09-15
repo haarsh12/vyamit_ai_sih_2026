@@ -14,34 +14,39 @@ from app.db.models import Item
 from app.db.tenant import TenantContext
 from app.retrieval.embeddings import EmbeddingServiceError, VertexEmbeddingService
 
+# The bill printer requires Latin text. Inventory can be entered in either
+# script, so aliases need to work in both directions: ``Doodh`` must find a
+# catalogue item called ``Milk`` just as ``दूध`` does.
+TRANSLITERATION_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("आटा", "अट्टा", "atta", "flour", "wheat", "wheatflour"),
+    ("दूध", "doodh", "dudh", "milk"),
+    ("चावल", "chawal", "rice"),
+    ("चीनी", "cheeni", "शक्कर", "shakkar", "sugar"),
+    ("तेल", "tel", "oil"),
+    ("दाल", "dal", "pulses", "lentils"),
+    ("नमक", "namak", "salt"),
+    ("चाय", "chai", "tea"),
+    ("बिस्कुट", "biscuit", "biscuits"),
+    ("साबुन", "sabun", "soap"),
+    ("मसाला", "masala", "spices"),
+    ("घी", "ghee"),
+    ("पनीर", "paneer", "cheese"),
+    ("दही", "dahi", "curd", "yogurt"),
+    ("ब्रेड", "bread"),
+    ("अंडा", "अंडे", "anda", "egg", "eggs"),
+    ("आलू", "aloo", "aaloo", "potato"),
+    ("प्याज", "प्याज़", "pyaaz", "pyaz", "onion"),
+    ("टमाटर", "tamatar", "tomato"),
+    ("हल्दी", "haldi", "turmeric"),
+    ("मिर्च", "mirch", "chilli", "chili"),
+    ("धनिया", "dhaniya", "coriander"),
+    ("जीरा", "jeera", "cumin"),
+)
+
 TRANSLITERATION_MAP: dict[str, list[str]] = {
-    "आटा": ["atta", "flour", "wheat"],
-    "अट्टा": ["atta", "flour", "wheat"],
-    "दूध": ["milk", "doodh"],
-    "चावल": ["rice", "chawal"],
-    "चीनी": ["sugar", "cheeni"],
-    "शक्कर": ["sugar", "shakkar"],
-    "तेल": ["oil", "tel"],
-    "दाल": ["dal", "pulses", "lentils"],
-    "नमक": ["salt", "namak"],
-    "चाय": ["tea", "chai"],
-    "बिस्कुट": ["biscuit", "biscuits"],
-    "साबुन": ["soap", "sabun"],
-    "मसाला": ["masala", "spices"],
-    "घी": ["ghee"],
-    "पनीर": ["paneer", "cheese"],
-    "दही": ["curd", "dahi", "yogurt"],
-    "ब्रेड": ["bread"],
-    "अंडा": ["egg", "eggs", "anda"],
-    "अंडे": ["egg", "eggs", "anda"],
-    "आलू": ["potato", "aloo", "aaloo"],
-    "प्याज": ["onion", "pyaaz"],
-    "प्याज़": ["onion", "pyaaz"],
-    "टमाटर": ["tomato", "tamatar"],
-    "हल्दी": ["turmeric", "haldi"],
-    "मिर्च": ["chilli", "chili", "mirch"],
-    "धनिया": ["coriander", "dhaniya"],
-    "जीरा": ["jeera", "cumin"],
+    alias: [term for term in group if term != alias]
+    for group in TRANSLITERATION_GROUPS
+    for alias in group
 }
 
 STOP_WORDS = {

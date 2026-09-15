@@ -40,13 +40,19 @@ class VoiceSessionRepository:
         ))
 
     async def resolve_tenant(self, room_name: str, participant_identity: str) -> TenantContext | None:
-        """Atomically validate both token-bound room and participant identity."""
+        """Atomically claim one voice job for the token-bound room and identity.
+
+        LiveKit may retry a dispatch while a worker is starting.  Allowing an
+        already-active session here lets both jobs start an AgentSession in the
+        same room, which produces overlapping speech and duplicate tool calls.
+        Only the first job may transition ``issued`` to ``active``.
+        """
 
         record = await self.session.scalar(select(VoiceSession).where(
             VoiceSession.room_name == room_name,
             VoiceSession.participant_identity == participant_identity,
             VoiceSession.expires_at > datetime.now(UTC),
-            VoiceSession.status.in_(("issued", "active")),
+            VoiceSession.status == "issued",
         ).with_for_update())
         if record is None:
             return None

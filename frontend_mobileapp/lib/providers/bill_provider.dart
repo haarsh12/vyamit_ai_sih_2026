@@ -1,6 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class BillProvider with ChangeNotifier {
   // Live bill items (persists across screens)
@@ -40,7 +41,13 @@ class BillProvider with ChangeNotifier {
     if (billItemsJson != null) {
       try {
         final List<dynamic> decoded = jsonDecode(billItemsJson);
-        _currentBillItems = decoded.cast<Map<String, dynamic>>();
+        _currentBillItems = decoded
+            .map(
+              (item) => _withCalculatedTotal(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
+            .toList();
       } catch (e) {
         print("Error loading bill items: $e");
         _currentBillItems = [];
@@ -59,14 +66,14 @@ class BillProvider with ChangeNotifier {
 
   // Add item to current bill
   void addBillItem(Map<String, dynamic> item) {
-    _currentBillItems.add(item);
+    _currentBillItems.add(_withCalculatedTotal(item));
     _saveBillItemsToStorage();
     notifyListeners();
   }
 
   // Add multiple items to current bill
   void addBillItems(List<Map<String, dynamic>> items) {
-    _currentBillItems.addAll(items);
+    _currentBillItems.addAll(items.map(_withCalculatedTotal));
     _saveBillItemsToStorage();
     notifyListeners();
   }
@@ -88,11 +95,11 @@ class BillProvider with ChangeNotifier {
         return;
       }
       final item = Map<String, dynamic>.from(_currentBillItems[index]);
-      final rate = (item['rate'] as num?)?.toDouble() ?? (item['price'] as num?)?.toDouble() ?? 0.0;
       item['qty'] = newQty;
-      item['qty_display'] = newQty == newQty.toInt() ? newQty.toInt().toString() : newQty.toString();
-      item['total'] = rate * newQty;
-      _currentBillItems[index] = item;
+      item['qty_display'] = newQty == newQty.toInt()
+          ? newQty.toInt().toString()
+          : newQty.toString();
+      _currentBillItems[index] = _withCalculatedTotal(item);
       _saveBillItemsToStorage();
       notifyListeners();
     }
@@ -101,7 +108,7 @@ class BillProvider with ChangeNotifier {
   // Update item details in current bill
   void updateBillItem(int index, Map<String, dynamic> updatedItem) {
     if (index >= 0 && index < _currentBillItems.length) {
-      _currentBillItems[index] = updatedItem;
+      _currentBillItems[index] = _withCalculatedTotal(updatedItem);
       _saveBillItemsToStorage();
       notifyListeners();
     }
@@ -118,7 +125,7 @@ class BillProvider with ChangeNotifier {
 
   // Update bill items (for frequent page)
   void updateBillItems(List<Map<String, dynamic>> items) {
-    _currentBillItems = items;
+    _currentBillItems = items.map(_withCalculatedTotal).toList();
     _saveBillItemsToStorage();
     notifyListeners();
   }
@@ -169,7 +176,29 @@ class BillProvider with ChangeNotifier {
   double get billTotal {
     return _currentBillItems.fold<double>(
       0,
-      (sum, item) => sum + ((item['total'] as num?)?.toDouble() ?? 0),
+      (sum, item) => sum + _lineTotal(item),
     );
+  }
+
+  double _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
+  double _lineTotal(Map<String, dynamic> item) {
+    final rate = _asDouble(item['rate'] ?? item['price']);
+    final quantity = _asDouble(item['qty'] ?? item['quantity']);
+    final safeQuantity = quantity > 0 ? quantity : 1.0;
+    return (rate * safeQuantity * 100).roundToDouble() / 100;
+  }
+
+  Map<String, dynamic> _withCalculatedTotal(Map<String, dynamic> item) {
+    final normalized = Map<String, dynamic>.from(item);
+    final rate = _asDouble(normalized['rate'] ?? normalized['price']);
+    final quantity = _asDouble(normalized['qty'] ?? normalized['quantity']);
+    normalized['rate'] = rate;
+    normalized['qty'] = quantity > 0 ? quantity : 1.0;
+    normalized['total'] = _lineTotal(normalized);
+    return normalized;
   }
 }

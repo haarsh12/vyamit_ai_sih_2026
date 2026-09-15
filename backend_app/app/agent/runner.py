@@ -168,11 +168,17 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         turn_handling=TurnHandlingOptions(
             turn_detection=inference.TurnDetector()  # Using default settings - works better with current LiveKit SDK
         ),
-        preemptive_generation=True,  # Start generating response before user finishes
+        # Wait for a final STT turn. Pre-emptive generation can leave both a
+        # provisional and final reply speaking in the same room.
+        preemptive_generation=False,
         use_tts_aligned_transcript=True,
     )
     perf_timer.end_stage("session_creation")
     
+    # The assistant needs the final transcript as a deterministic fallback for
+    # values such as "1.5 kilo" when the LLM tool call omits or rounds them.
+    assistant: VyamitAssistant | None = None
+
     # Event handlers with detailed state tracking
     perf_timer.start_stage("event_handler_setup")
     
@@ -211,6 +217,8 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         if final:
             logger.info(f"🎤 [{room_name}] USER (final): '{transcript}' [{language}]")
             llm_start_time = time.perf_counter()
+            if assistant is not None:
+                assistant.remember_final_user_transcript(str(transcript))
         
         # Async publish to UI
         asyncio.create_task(_publish_ui_event(
@@ -319,18 +327,19 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     # Start session BEFORE connecting to reduce latency
     perf_timer.start_stage("session_start")
     
-    await session.start(
-        agent=VyamitAssistant(
-            instructions=(
-                DOCTOR_VOICE_INSTRUCTIONS
-                if tenant.shop_category == "Doctor Prescription"
-                else VOICE_ASSISTANT_INSTRUCTIONS
-            ),
-            tenant=tenant,
-            on_bill_draft_created=on_bill_draft,
-            on_prescription_draft_created=on_prescription_draft,
-            on_inventory_draft_created=on_inventory_draft,
+    assistant = VyamitAssistant(
+        instructions=(
+            DOCTOR_VOICE_INSTRUCTIONS
+            if tenant.shop_category == "Doctor Prescription"
+            else VOICE_ASSISTANT_INSTRUCTIONS
         ),
+        tenant=tenant,
+        on_bill_draft_created=on_bill_draft,
+        on_prescription_draft_created=on_prescription_draft,
+        on_inventory_draft_created=on_inventory_draft,
+    )
+    await session.start(
+        agent=assistant,
         room=ctx.room,
         room_options=room_options,
     )

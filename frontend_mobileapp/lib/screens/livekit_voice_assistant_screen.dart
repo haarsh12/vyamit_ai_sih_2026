@@ -50,6 +50,7 @@ class _LiveKitVoiceAssistantScreenState
   bool _isEditMode = false;
   bool _isManualLiveBillOpen = false;
   Map<String, dynamic>? _pendingCustomerVerificationSuggestion;
+  final Set<String> _handledBillDraftIds = <String>{};
 
   @override
   void initState() {
@@ -299,6 +300,11 @@ class _LiveKitVoiceAssistantScreenState
 
       case 'bill_draft':
         debugPrint('🎤 VOICE: Received bill_draft event');
+        final draftId = event.payload['draft_id']?.toString().trim() ?? '';
+        if (draftId.isNotEmpty && _handledBillDraftIds.contains(draftId)) {
+          debugPrint('🎤 VOICE: Ignoring duplicate bill_draft event: $draftId');
+          break;
+        }
         final rawSuggestion = event.payload['customer_verification_suggestion'];
         _pendingCustomerVerificationSuggestion = rawSuggestion is Map
             ? Map<String, dynamic>.from(rawSuggestion)
@@ -311,11 +317,16 @@ class _LiveKitVoiceAssistantScreenState
             debugPrint('🎤 VOICE: Processing ${rawItems.length} items');
             final billItems = rawItems.map((item) {
               final map = Map<String, dynamic>.from(item as Map);
-              final qty = map['quantity'] ?? map['qty'] ?? 1;
+              final rawQty = map['quantity'] ?? map['qty'] ?? 1;
+              final parsedQty = _asDouble(rawQty);
+              final qty = parsedQty > 0 ? parsedQty : 1.0;
               final rate = _asDouble(map['price'] ?? map['rate']);
-              final total = _asDouble(map['total'] ?? (rate * _asDouble(qty)));
+              // The live bill has one source of truth: quantity times rate.
+              // Do not trust a stale total sent by a repeated network event.
+              final total = _roundMoney(rate * qty);
               final unit = map['unit']?.toString() ?? 'kg';
-              var qtyDisplay = map['qty_display']?.toString() ?? '${_formatNumber(_asDouble(qty))}$unit';
+              final qtyDisplay = map['qty_display']?.toString() ??
+                  '${_formatNumber(qty)} $unit';
 
               final processedItem = <String, dynamic>{
                 'name': map['name']?.toString() ?? 'Item',
@@ -339,10 +350,10 @@ class _LiveKitVoiceAssistantScreenState
             }
             debugPrint('🎤 VOICE: Current bill has ${billProvider.currentBillItems.length} items');
             debugPrint('🎤 VOICE: Adding ${billItems.length} new items to bill');
-            
-            // ADD items instead of REPLACING them
             billProvider.addBillItems(billItems);
-            
+            if (draftId.isNotEmpty) {
+              _handledBillDraftIds.add(draftId);
+            }
             debugPrint('🎤 VOICE: Bill now has ${billProvider.currentBillItems.length} items');
           }
         } else {
@@ -371,6 +382,8 @@ class _LiveKitVoiceAssistantScreenState
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0.0;
   }
+
+  double _roundMoney(double value) => (value * 100).roundToDouble() / 100;
 
   String _formatNumber(double value) {
     if (value == value.toInt()) {

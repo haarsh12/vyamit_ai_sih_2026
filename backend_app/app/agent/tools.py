@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import re
+import time
 from collections.abc import Awaitable, Callable
 
 from livekit.agents import Agent, function_tool
@@ -22,6 +26,72 @@ from app.retrieval.inventory import inventory_search_service
 from app.schemas.analytics import BillCreate
 
 
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+_SPOKEN_QUANTITY_PATTERN = re.compile(
+    r"(?P<amount>\d+(?:\.\d+)?|half|quarter|aadha|adha|dedh|derh|"
+    r"आधा|पाव|डेढ़|डेढ़|सवा|पौना)\s*"
+    r"(?P<unit>kg|kilo(?:gram)?s?|किलो(?:ग्राम)?|g|gm|grams?|ग्राम|"
+    r"l|lit(?:er|re)?s?|लीटर)",
+    re.IGNORECASE,
+)
+_SPOKEN_NUMBER_VALUES: dict[str, float] = {
+    "half": 0.5,
+    "quarter": 0.25,
+    "aadha": 0.5,
+    "adha": 0.5,
+    "आधा": 0.5,
+    "पाव": 0.25,
+    "dedh": 1.5,
+    "derh": 1.5,
+    "डेढ़": 1.5,
+    "डेढ़": 1.5,
+    "सवा": 1.25,
+    "पौना": 0.75,
+}
+
+
+def _normalise_spoken_unit(unit: str) -> str:
+    unit_key = unit.casefold().strip()
+    if unit_key in {"kg", "kilo", "kilogram", "kilograms", "किलो", "किलोग्राम"}:
+        return "kg"
+    if unit_key in {"g", "gm", "gram", "grams", "ग्राम"}:
+        return "g"
+    if unit_key in {"l", "lit", "liter", "litre", "liters", "litres", "लीटर"}:
+        return "liter"
+    return unit_key
+
+
+def _parse_spoken_quantities(text: str) -> list[tuple[float, str]]:
+    """Read explicit number-plus-unit pairs from one final STT transcript."""
+
+    normalised = text.translate(_DEVANAGARI_DIGITS)
+    quantities: list[tuple[float, str]] = []
+    for match in _SPOKEN_QUANTITY_PATTERN.finditer(normalised):
+        raw_amount = match.group("amount").casefold()
+        try:
+            amount = _SPOKEN_NUMBER_VALUES.get(raw_amount)
+            if amount is None:
+                amount = float(raw_amount)
+        except ValueError:
+            continue
+        if amount > 0:
+            quantities.append((amount, _normalise_spoken_unit(match.group("unit"))))
+    return quantities
+
+
+def _quantity_in_catalog_unit(quantity: float, spoken_unit: str, catalog_unit: str) -> float:
+    """Convert only compatible weight/volume units; otherwise preserve quantity."""
+
+    target_unit = _normalise_spoken_unit(catalog_unit)
+    if spoken_unit == target_unit:
+        return quantity
+    if spoken_unit == "g" and target_unit == "kg":
+        return quantity / 1000
+    if spoken_unit == "kg" and target_unit == "g":
+        return quantity * 1000
+    return quantity
+
+
 class VyamitAssistant(Agent):
     """One agent instance owns only one server-resolved tenant context."""
 
@@ -39,6 +109,16 @@ class VyamitAssistant(Agent):
         self._on_bill_draft_created = on_bill_draft_created
         self._on_prescription_draft_created = on_prescription_draft_created
         self._on_inventory_draft_created = on_inventory_draft_created
+        self._last_bill_request_signature: str | None = None
+        self._last_bill_result: dict[str, object] | None = None
+        self._last_bill_request_at = 0.0
+        self._last_final_user_transcript = ""
+        self._bill_draft_lock = asyncio.Lock()
+
+    def remember_final_user_transcript(self, transcript: str) -> None:
+        """Keep the current spoken turn authoritative for its bill tool call."""
+
+        self._last_final_user_transcript = transcript.strip()
 
     @function_tool()
     async def get_shop_profile(self) -> dict[str, object]:
@@ -267,9 +347,13 @@ class VyamitAssistant(Agent):
         if self.tenant.shop_category == "Doctor Prescription":
             return {"created": False, "message": "Billing drafts are unavailable in doctor mode."}
 
+        spoken_quantities = _parse_spoken_quantities(self._last_final_user_transcript)
+        use_spoken_quantities = len(spoken_quantities) == len(items)
         normalized_items: list[dict[str, object]] = []
+        catalog_resolutions: list[dict[str, object]] = []
+        unresolved_items: list[str] = []
         async with get_agent_db_session() as session:
-            for item in items:
+            for index, item in enumerate(items):
                 name = str(
                     item.get("name")
                     or item.get("item")
@@ -289,29 +373,69 @@ class VyamitAssistant(Agent):
                 except (ValueError, TypeError):
                     qty = 1.0
 
+                spoken_quantity = (
+                    spoken_quantities[index] if use_spoken_quantities else None
+                )
+                if spoken_quantity is not None:
+                    qty = spoken_quantity[0]
+
+                supplied_price = next(
+                    (
+                        item.get(field)
+                        for field in ("price", "rate", "unit_price", "price_per_unit", "cost")
+                        if item.get(field) is not None and str(item.get(field)).strip()
+                    ),
+                    None,
+                )
                 try:
-                    price = float(
-                        item.get("price")
-                        or item.get("rate")
-                        or item.get("unit_price")
-                        or item.get("price_per_unit")
-                        or item.get("cost")
-                        or 0.0
-                    )
+                    price = float(supplied_price) if supplied_price is not None else 0.0
                 except (ValueError, TypeError):
                     price = 0.0
 
-                # Auto catalog price lookup if price was not supplied by user/LLM
-                if price <= 0.0 and name and name != "Item":
-                    matches = await inventory_search_service.search(session, self.tenant, name)
-                    if matches:
-                        try:
-                            price = float(matches[0].item.price)
-                        except (ValueError, TypeError):
-                            pass
+                supplied_unit = next(
+                    (
+                        str(item.get(field)).strip()
+                        for field in ("unit", "unit_name")
+                        if item.get(field) is not None and str(item.get(field)).strip()
+                    ),
+                    None,
+                )
 
+                # The model often knows the quantity and name but not the
+                # price. Resolve that from the tenant-scoped catalogue here,
+                # rather than allowing a zero-price line into the live bill.
+                # A supplied positive price is kept as an explicit owner price.
+                catalog_match = None
+                if price <= 0.0 and name != "Item":
+                    matches = await inventory_search_service.search(
+                        session, self.tenant, name, limit=1
+                    )
+                    if matches:
+                        catalog_match = matches[0]
+                        try:
+                            price = float(catalog_match.item.price)
+                        except (ValueError, TypeError):
+                            price = 0.0
+
+                if price <= 0.0 and catalog_match is None:
+                    unresolved_items.append(name)
+                    logger.info(
+                        "bill_item_price_unresolved",
+                        extra={
+                            "item_name": name,
+                            "owner_id": self.tenant.owner_id,
+                            "shop_category": self.tenant.shop_category,
+                        },
+                    )
+                    continue
+
+                catalog_unit = catalog_match.item.unit if catalog_match else None
+                if spoken_quantity is not None:
+                    unit = catalog_unit or spoken_quantity[1]
+                    qty = _quantity_in_catalog_unit(qty, spoken_quantity[1], unit)
+                else:
+                    unit = supplied_unit or catalog_unit or "kg"
                 item_total = round(qty * price, 2)
-                unit = str(item.get("unit") or item.get("unit_name") or "kg").strip()
                 normalized_items.append({
                     "name": name,
                     "quantity": qty,
@@ -319,6 +443,23 @@ class VyamitAssistant(Agent):
                     "price": price,
                     "total": item_total,
                 })
+                if catalog_match is not None:
+                    catalog_resolutions.append({
+                        "requested_name": name,
+                        "catalog_id": catalog_match.item.master_id,
+                        "catalog_name": catalog_match.item.names[0] if catalog_match.item.names else name,
+                        "price": price,
+                        "unit": unit,
+                        "match_source": catalog_match.source,
+                    })
+
+            if not normalized_items:
+                names = ", ".join(unresolved_items) or "the requested item"
+                return {
+                    "created": False,
+                    "message": f"No price could be resolved for {names}. Search the inventory or ask the owner for a price.",
+                    "unresolved_items": unresolved_items,
+                }
 
             final_total = round(sum(it["total"] for it in normalized_items), 2)
 
@@ -333,23 +474,51 @@ class VyamitAssistant(Agent):
             except Exception as err:
                 return {"created": False, "message": f"The proposed bill has invalid data: {err}"}
 
-            draft = await workflow_service.create_bill_draft(session, self.tenant, payload)
-            result: dict[str, object] = {
-                "created": True,
-                "draft_id": str(draft.id),
-                "version": draft.version,
-                "expires_at": draft.expires_at.isoformat(),
-                "state": draft.state.model_dump(mode="json"),
-                "customer_verification_suggestion": (
-                    draft.customer_verification_suggestion.model_dump(mode="json")
-                    if draft.customer_verification_suggestion is not None
-                    else None
-                ),
-                "requires_user_confirmation": False,
-            }
-            if self._on_bill_draft_created is not None:
-                await self._on_bill_draft_created(result)
-            return result
+            payload_state = payload.model_dump(mode="json")
+            request_signature = json.dumps(
+                {
+                    "items": payload_state["items"],
+                    "customer_phone": payload_state["customer_phone"],
+                    "customer_name": payload_state["customer_name"],
+                    "payment_method": payload_state["payment_method"],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            async with self._bill_draft_lock:
+                now = time.monotonic()
+                if (
+                    request_signature == self._last_bill_request_signature
+                    and self._last_bill_result is not None
+                    and now - self._last_bill_request_at < 1.0
+                ):
+                    # A retried LiveKit turn can call the same tool twice
+                    # within milliseconds. Return the original answer without
+                    # publishing a second bill draft to the mobile app.
+                    return {**self._last_bill_result, "duplicate_suppressed": True}
+
+                draft = await workflow_service.create_bill_draft(session, self.tenant, payload)
+                result: dict[str, object] = {
+                    "created": True,
+                    "draft_id": str(draft.id),
+                    "version": draft.version,
+                    "expires_at": draft.expires_at.isoformat(),
+                    "state": draft.state.model_dump(mode="json"),
+                    "customer_verification_suggestion": (
+                        draft.customer_verification_suggestion.model_dump(mode="json")
+                        if draft.customer_verification_suggestion is not None
+                        else None
+                    ),
+                    "requires_user_confirmation": False,
+                    "catalog_resolutions": catalog_resolutions,
+                    "unresolved_items": unresolved_items,
+                }
+                self._last_bill_request_signature = request_signature
+                self._last_bill_result = result
+                self._last_bill_request_at = now
+                if self._on_bill_draft_created is not None:
+                    await self._on_bill_draft_created(result)
+                return result
 
     @function_tool()
     async def format_prescription_dictation(self, text: str) -> dict[str, object]:
