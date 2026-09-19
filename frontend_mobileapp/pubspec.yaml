@@ -27,6 +27,9 @@ dependencies:
   shared_preferences: ^2.5.4 # For saving Tokens locally
   flutter_secure_storage: ^9.2.4 # Native encrypted storage for bearer tokens
   livekit_client: ^2.11.0 # Server-issued WebRTC voice rooms
+  speech_to_text: ^7.4.0 # Device recognition for the manually stopped Long Bill mode
+  flutter_tts: ^4.2.3 # Device TTS for the Token Saver mode
+  web_socket_channel: ^3.0.3 # Authenticated text socket for Token Saver
 
   # --- HARDWARE & FEATURES ---
   image_picker: ^1.1.1    # QR Code/Profile Upload

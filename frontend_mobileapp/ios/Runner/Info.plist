@@ -17,7 +17,9 @@
 	<key>CFBundleName</key>
 	<string>frontend_mobileapp</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Vyamit uses the microphone for your secure LiveKit voice assistant session.</string>
+	<string>Vyamit uses the microphone for secure voice billing and locally recognized Long Bill dictation.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Vyamit converts your Long Bill dictation into an editable billing draft.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

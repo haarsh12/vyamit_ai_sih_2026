@@ -76,10 +76,6 @@ services:
         value: sonic-3
       - key: CARTESIA_VOICE_ID
         sync: false
-      - key: MISTRAL_API_KEY
-        sync: false
-      - key: MISTRAL_MODEL
-        sync: false
       - key: ENABLE_ENHANCED_NOISE_CANCELLATION
         value: false
       

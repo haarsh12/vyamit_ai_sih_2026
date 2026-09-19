@@ -10,6 +10,10 @@ import '../services/printer_service.dart';
 import '../features/gst/gst_invoice_preview_screen.dart';
 import '../features/gst/models/gst_invoice_draft.dart';
 import '../features/gst/providers/gst_provider.dart';
+import '../features/voice/models/voice_mode.dart';
+import '../features/voice/services/long_bill_service.dart';
+import '../features/voice/services/long_bill_speech_service.dart';
+import '../features/voice/services/token_saver_voice_service.dart';
 import 'bill_share_modal.dart';
 
 class LiveKitVoiceAssistantScreen extends StatefulWidget {
@@ -34,7 +38,11 @@ class LiveKitVoiceAssistantScreen extends StatefulWidget {
 class _LiveKitVoiceAssistantScreenState
     extends State<LiveKitVoiceAssistantScreen> {
   final LiveKitVoiceService _voice = LiveKitVoiceService();
+  final PageController _voiceModeController = PageController();
+  final LongBillService _longBillService = LongBillService();
   StreamSubscription<VoiceUiEvent>? _events;
+  late final LongBillSpeechService _longBillSpeech;
+  late final TokenSaverVoiceService _tokenSaverVoice;
 
   // Session & Voice state
   bool _isSessionActive = false;
@@ -46,6 +54,18 @@ class _LiveKitVoiceAssistantScreenState
   Timer? _audioLevelTimer;
   double _startupTimeMs = 0.0;
 
+  // The mode selector controls only the upper section.  Billing and the shop
+  // header are deliberately outside this state so they remain fixed.
+  int _voiceModeIndex = 0;
+  bool _isLongBillSubmitting = false;
+  String _longBillTranscript = '';
+  String _longBillStatus = 'Tap to start a Long Bill recording';
+  double _longBillAudioLevel = 0.0;
+  TokenSaverSessionState _tokenSaverState = TokenSaverSessionState.idle;
+  String _tokenSaverTranscript = '';
+  String _tokenSaverMessage = 'Tap to start Token Saver';
+  double _tokenSaverAudioLevel = 0.0;
+
   // Edit Mode & Live Bill State
   bool _isEditMode = false;
   bool _isManualLiveBillOpen = false;
@@ -56,6 +76,45 @@ class _LiveKitVoiceAssistantScreenState
   void initState() {
     super.initState();
     _events = _voice.events.listen(_handleVoiceEvent);
+    _longBillSpeech = LongBillSpeechService(
+      onTranscriptChanged: (transcript) {
+        if (!mounted) return;
+        setState(() => _longBillTranscript = transcript);
+      },
+      onSoundLevelChanged: (level) {
+        if (!mounted) return;
+        setState(() => _longBillAudioLevel = level);
+      },
+      onStatusChanged: (status) {
+        if (!mounted) return;
+        setState(() => _longBillStatus = status);
+      },
+    );
+    _tokenSaverVoice = TokenSaverVoiceService(
+      onStateChanged: (state, message) {
+        if (!mounted) return;
+        setState(() {
+          _tokenSaverState = state;
+          _tokenSaverMessage = message;
+        });
+      },
+      onTranscriptChanged: (transcript) {
+        if (!mounted) return;
+        setState(() => _tokenSaverTranscript = transcript);
+      },
+      onAudioLevelChanged: (level) {
+        if (!mounted) return;
+        setState(() => _tokenSaverAudioLevel = level);
+      },
+      onResponse: (response) {
+        if (!mounted) return;
+        final draft = response['draft'];
+        if (response['type'] == 'BILL' && draft is Map) {
+          _applyBillDraftPayload(Map<String, dynamic>.from(draft));
+          setState(() => _isManualLiveBillOpen = true);
+        }
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await context.read<GstProvider>().loadConfiguration();
@@ -67,6 +126,9 @@ class _LiveKitVoiceAssistantScreenState
   void dispose() {
     _events?.cancel();
     _audioLevelTimer?.cancel();
+    _voiceModeController.dispose();
+    unawaited(_longBillSpeech.dispose());
+    unawaited(_tokenSaverVoice.dispose());
     _voice.dispose();
     super.dispose();
   }
@@ -126,6 +188,117 @@ class _LiveKitVoiceAssistantScreenState
       _audioLevel = 0.0;
       _startupTimeMs = 0.0;
     });
+  }
+
+  /// Release every microphone-backed mode before resetting or finalizing a
+  /// bill. Each implementation is guarded so this does not overwrite the UI
+  /// state of an inactive mode.
+  Future<void> _stopAllVoiceModes() async {
+    if (_isSessionActive || _voice.isConnecting) {
+      await _stopContinuousSession();
+    }
+    if (_tokenSaverVoice.isActive) {
+      await _tokenSaverVoice.stop();
+    }
+    if (_longBillSpeech.isRecording) {
+      await _longBillSpeech.stop();
+    }
+  }
+
+  void _onVoiceModeChanged(int index) {
+    if (index == _voiceModeIndex) return;
+    final previousMode = VoiceMode.values[_voiceModeIndex];
+    setState(() => _voiceModeIndex = index);
+
+    // A mode switch must never leave an unseen microphone session running.
+    if (previousMode == VoiceMode.voiceAgent &&
+        (_isSessionActive || _voice.isConnecting)) {
+      unawaited(_stopContinuousSession());
+    }
+    if (previousMode == VoiceMode.longBill && _longBillSpeech.isRecording) {
+      unawaited(_pauseLongBillForModeChange());
+    }
+    if (previousMode == VoiceMode.tokenSaver && _tokenSaverVoice.isActive) {
+      unawaited(_tokenSaverVoice.stop());
+    }
+  }
+
+  Future<void> _toggleTokenSaver() async {
+    if (_tokenSaverVoice.isActive) {
+      await _tokenSaverVoice.stop();
+      return;
+    }
+    setState(() {
+      _tokenSaverTranscript = '';
+      _tokenSaverAudioLevel = 0;
+      _tokenSaverMessage = 'Starting Token Saver…';
+    });
+    await _tokenSaverVoice.start();
+  }
+
+  Future<void> _pauseLongBillForModeChange() async {
+    await _longBillSpeech.stop();
+    if (!mounted) return;
+    setState(() {
+      _longBillStatus = _longBillTranscript.trim().isEmpty
+          ? 'Recording stopped'
+          : 'Recording paused. Return to Long Bill to create the draft.';
+    });
+  }
+
+  Future<void> _toggleLongBillRecording() async {
+    if (_isLongBillSubmitting) return;
+    if (_longBillSpeech.isRecording) {
+      final transcript = await _longBillSpeech.stop();
+      if (!mounted) return;
+      if (transcript.trim().length < 2) {
+        setState(() => _longBillStatus = 'No speech was recognized. Please try again.');
+        return;
+      }
+      await _submitLongBillTranscript(transcript);
+      return;
+    }
+
+    setState(() {
+      _longBillTranscript = '';
+      _longBillAudioLevel = 0;
+      _longBillStatus = 'Starting device speech recognition…';
+    });
+    final result = await _longBillSpeech.start();
+    if (!mounted) return;
+    setState(() => _longBillStatus = result.message);
+  }
+
+  Future<void> _submitLongBillTranscript(String transcript) async {
+    setState(() {
+      _isLongBillSubmitting = true;
+      _longBillStatus = 'Creating a secure bill draft…';
+    });
+    try {
+      final response = await _longBillService.createDraft(transcript);
+      if (!mounted) return;
+      final message = response['message']?.toString() ?? 'Long Bill review is ready.';
+      final draft = response['draft'];
+      if (response['status'] == 'draft' && draft is Map) {
+        _applyBillDraftPayload(
+          Map<String, dynamic>.from(draft),
+          replaceExistingBill: true,
+        );
+        setState(() {
+          _isManualLiveBillOpen = true;
+          _longBillStatus = message;
+        });
+      } else {
+        setState(() => _longBillStatus = message);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _longBillStatus = 'Could not create the draft. Check your connection and try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _isLongBillSubmitting = false);
+    }
   }
 
   void _startAudioLevelAnimation() {
@@ -299,66 +472,7 @@ class _LiveKitVoiceAssistantScreenState
         break;
 
       case 'bill_draft':
-        debugPrint('🎤 VOICE: Received bill_draft event');
-        final draftId = event.payload['draft_id']?.toString().trim() ?? '';
-        if (draftId.isNotEmpty && _handledBillDraftIds.contains(draftId)) {
-          debugPrint('🎤 VOICE: Ignoring duplicate bill_draft event: $draftId');
-          break;
-        }
-        final rawSuggestion = event.payload['customer_verification_suggestion'];
-        _pendingCustomerVerificationSuggestion = rawSuggestion is Map
-            ? Map<String, dynamic>.from(rawSuggestion)
-            : null;
-        if (event.payload['state'] != null &&
-            event.payload['state']['items'] != null) {
-          final rawItems = event.payload['state']['items'];
-          debugPrint('🎤 VOICE: Raw items: $rawItems');
-          if (rawItems is List) {
-            debugPrint('🎤 VOICE: Processing ${rawItems.length} items');
-            final billItems = rawItems.map((item) {
-              final map = Map<String, dynamic>.from(item as Map);
-              final rawQty = map['quantity'] ?? map['qty'] ?? 1;
-              final parsedQty = _asDouble(rawQty);
-              final qty = parsedQty > 0 ? parsedQty : 1.0;
-              final rate = _asDouble(map['price'] ?? map['rate']);
-              // The live bill has one source of truth: quantity times rate.
-              // Do not trust a stale total sent by a repeated network event.
-              final total = _roundMoney(rate * qty);
-              final unit = map['unit']?.toString() ?? 'kg';
-              final qtyDisplay = map['qty_display']?.toString() ??
-                  '${_formatNumber(qty)} $unit';
-
-              final processedItem = <String, dynamic>{
-                'name': map['name']?.toString() ?? 'Item',
-                'en': map['name']?.toString() ?? 'Item',
-                'hi': map['name']?.toString() ?? 'Item',
-                'qty': '$qty',
-                'qty_display': qtyDisplay,
-                'rate': rate,
-                'total': total,
-                'unit': unit,
-                'gst_rate': _asDouble(map['gst_rate']),
-              };
-              debugPrint('🎤 VOICE: Processed item: ${processedItem['name']} x ${processedItem['qty']} @ ₹${processedItem['rate']} = ₹${processedItem['total']}');
-              return processedItem;
-            }).toList();
-
-            final billProvider = Provider.of<BillProvider>(context, listen: false);
-            final customerName = event.payload['state']['customer_name']?.toString().trim();
-            if (customerName != null && customerName.isNotEmpty) {
-              billProvider.setCustomerName(customerName);
-            }
-            debugPrint('🎤 VOICE: Current bill has ${billProvider.currentBillItems.length} items');
-            debugPrint('🎤 VOICE: Adding ${billItems.length} new items to bill');
-            billProvider.addBillItems(billItems);
-            if (draftId.isNotEmpty) {
-              _handledBillDraftIds.add(draftId);
-            }
-            debugPrint('🎤 VOICE: Bill now has ${billProvider.currentBillItems.length} items');
-          }
-        } else {
-          debugPrint('🎤 VOICE: bill_draft event missing state or items');
-        }
+        _applyBillDraftPayload(event.payload);
         break;
 
       case 'disconnected':
@@ -374,6 +488,65 @@ class _LiveKitVoiceAssistantScreenState
           _agentResponse = "Voice Error";
         });
         break;
+    }
+  }
+
+  void _applyBillDraftPayload(
+    Map<String, dynamic> payload, {
+    bool replaceExistingBill = false,
+  }) {
+    final draftId = (payload['draft_id'] ?? payload['id'])?.toString().trim() ?? '';
+    if (draftId.isNotEmpty && _handledBillDraftIds.contains(draftId)) {
+      return;
+    }
+    final rawState = payload['state'];
+    if (rawState is! Map) return;
+    final state = Map<String, dynamic>.from(rawState);
+    final rawItems = state['items'];
+    if (rawItems is! List || rawItems.isEmpty) return;
+
+    final billItems = <Map<String, dynamic>>[];
+    for (final rawItem in rawItems) {
+      if (rawItem is! Map) continue;
+      final item = Map<String, dynamic>.from(rawItem);
+      final parsedQty = _asDouble(item['quantity'] ?? item['qty'] ?? 1);
+      final quantity = parsedQty > 0 ? parsedQty : 1.0;
+      final rate = _asDouble(item['price'] ?? item['rate']);
+      final unit = item['unit']?.toString() ?? 'unit';
+      final name = item['name']?.toString().trim();
+      if (name == null || name.isEmpty || rate < 0) continue;
+      billItems.add({
+        'name': name,
+        'en': name,
+        'hi': name,
+        'qty': '$quantity',
+        'qty_display': item['qty_display']?.toString() ?? '${_formatNumber(quantity)} $unit',
+        'rate': rate,
+        // Recalculate on the client so stale transport values cannot alter a bill.
+        'total': _roundMoney(rate * quantity),
+        'unit': unit,
+        'gst_rate': _asDouble(item['gst_rate']),
+      });
+    }
+    if (billItems.isEmpty) return;
+
+    final rawSuggestion = payload['customer_verification_suggestion'];
+    _pendingCustomerVerificationSuggestion = rawSuggestion is Map
+        ? Map<String, dynamic>.from(rawSuggestion)
+        : null;
+    final customerName = state['customer_name']?.toString().trim();
+    final billProvider = Provider.of<BillProvider>(context, listen: false);
+    if (replaceExistingBill) {
+      // Long Bill describes a complete bill. It must not silently merge into
+      // an earlier Live Bill or Token Saver turn.
+      billProvider.clearBill();
+    }
+    if (customerName != null && customerName.isNotEmpty) {
+      billProvider.setCustomerName(customerName);
+    }
+    billProvider.addBillItems(billItems);
+    if (draftId.isNotEmpty) {
+      _handledBillDraftIds.add(draftId);
     }
   }
 
@@ -462,7 +635,7 @@ class _LiveKitVoiceAssistantScreenState
       items.fold<double>(0, (sum, item) => sum + _gstLineTotal(item));
 
   void _resetVoicePage() {
-    _stopContinuousSession();
+    unawaited(_stopAllVoiceModes());
     final billProvider = Provider.of<BillProvider>(context, listen: false);
     billProvider.clearBill();
     Provider.of<GstProvider>(context, listen: false).resetCurrentBill();
@@ -569,7 +742,7 @@ class _LiveKitVoiceAssistantScreenState
         ),
       );
       if (printed == true && mounted) {
-        await _stopContinuousSession();
+        await _stopAllVoiceModes();
         billProvider.clearBill();
         setState(() {
           _agentResponse = 'GST invoice printed';
@@ -612,7 +785,7 @@ class _LiveKitVoiceAssistantScreenState
     };
 
     widget.onBillFinalized(billData);
-    await _stopContinuousSession();
+    await _stopAllVoiceModes();
     billProvider.clearBill();
 
     setState(() {
@@ -834,15 +1007,274 @@ class _LiveKitVoiceAssistantScreenState
     );
   }
 
+  Widget _buildVoiceModeOrb({
+    required bool active,
+    required double audioLevel,
+    required Color activeColor,
+    required IconData icon,
+    required VoidCallback? onTap,
+  }) {
+    return Semantics(
+      button: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (active)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 142 + (audioLevel * 20),
+                height: 142 + (audioLevel * 20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: activeColor.withOpacity(.22), width: 2),
+                ),
+              ),
+            AnimatedScale(
+              scale: active ? 1 + (audioLevel * .1) : 1,
+              duration: const Duration(milliseconds: 120),
+              child: Container(
+                width: 112,
+                height: 112,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? null : Colors.white,
+                  gradient: active
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [activeColor.withOpacity(.92), activeColor],
+                        )
+                      : null,
+                  border: Border.all(
+                    color: active ? Colors.transparent : Colors.grey.shade300,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: active ? activeColor.withOpacity(.28) : Colors.black12,
+                      blurRadius: active ? 24 : 10,
+                      spreadRadius: active ? 3 : 1,
+                    ),
+                  ],
+                ),
+                child: Icon(icon, size: 46, color: active ? Colors.white : Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveKitModePanel() {
+    final active = _isSessionActive;
+    final color = active ? _getStatusColor(_sessionState) : Colors.teal;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          const Column(
+            children: [
+              Text('Voice Agent', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 2),
+              Text('LiveKit realtime assistant', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          _buildVoiceModeOrb(
+            active: active,
+            audioLevel: _audioLevel,
+            activeColor: color,
+            icon: active ? _getStatusIcon(_sessionState) : Icons.mic,
+            onTap: _toggleListening,
+          ),
+          Column(
+            children: [
+              Text(
+                active ? _stateLabel : 'Tap to Start',
+                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                active ? _getDisplayText() : _agentResponse,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTokenSaverModePanel() {
+    final active = _tokenSaverVoice.isActive;
+    final color = switch (_tokenSaverState) {
+      TokenSaverSessionState.error => Colors.red,
+      TokenSaverSessionState.processing => Colors.orange,
+      TokenSaverSessionState.speaking => Colors.teal,
+      _ => Colors.indigo,
+    };
+    final icon = switch (_tokenSaverState) {
+      TokenSaverSessionState.processing => Icons.psychology_rounded,
+      TokenSaverSessionState.speaking => Icons.volume_up_rounded,
+      _ => active ? Icons.graphic_eq_rounded : Icons.mic,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          const Column(
+            children: [
+              Text('Token Saver', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 2),
+              Text('On-device STT/TTS • secure text socket', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          _buildVoiceModeOrb(
+            active: active,
+            audioLevel: _tokenSaverAudioLevel,
+            activeColor: color,
+            icon: icon,
+            onTap: _toggleTokenSaver,
+          ),
+          Column(
+            children: [
+              Text(
+                _tokenSaverMessage,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                _tokenSaverTranscript.isEmpty ? 'Your live transcript will appear here.' : _tokenSaverTranscript,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnavailableModePanel(VoiceMode mode) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Text(mode.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          Container(
+            width: 112,
+            height: 112,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade200,
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Icon(Icons.mic_none_rounded, color: Colors.grey, size: 46),
+          ),
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(99)),
+                child: const Text('UNDER DEVELOPMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+              const SizedBox(height: 7),
+              Text(mode.description, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLongBillModePanel() {
+    final recording = _longBillSpeech.isRecording;
+    final active = recording || _isLongBillSubmitting;
+    final color = _isLongBillSubmitting ? Colors.orange : Colors.deepPurple;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          const Column(
+            children: [
+              Text('Long Bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 2),
+              Text('Speak the full bill, then stop to review it', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          _buildVoiceModeOrb(
+            active: active,
+            audioLevel: _longBillAudioLevel,
+            activeColor: color,
+            icon: _isLongBillSubmitting ? Icons.hourglass_top_rounded : (recording ? Icons.stop_rounded : Icons.mic),
+            onTap: _isLongBillSubmitting ? null : _toggleLongBillRecording,
+          ),
+          Column(
+            children: [
+              Text(
+                _longBillStatus,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                _longBillTranscript.isEmpty ? 'Your live transcript will appear here.' : _longBillTranscript,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoiceModeDots() {
+    return Semantics(
+      label: '${VoiceMode.values[_voiceModeIndex].title} mode selected. Swipe left or right to change mode.',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(VoiceMode.values.length, (index) {
+            final selected = index == _voiceModeIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primaryGreen : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final gstProvider = context.watch<GstProvider>();
     
-    // Enhanced status colors based on current state
-    final statusColor = !_isSessionActive
-        ? Colors.grey
-        : _getStatusColor(_sessionState);
-
     return Consumer<BillProvider>(
       builder: (context, billProvider, child) {
         final currentBill = billProvider.currentBillItems;
@@ -887,193 +1319,26 @@ class _LiveKitVoiceAssistantScreenState
                       ),
                     ),
 
-                    // 2. Voice Circle & Mic Animations
+                    // 2. This is the only swipeable part of the page. The
+                    // header and the bill area below remain fixed.
                     if (!_isEditMode)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                      SizedBox(
+                        height: 300,
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                if (_isSessionActive) ...[
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 500),
-                                    height: 160 + (_audioLevel * 20),
-                                    width: 160 + (_audioLevel * 20),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: statusColor.withOpacity(0.2),
-                                        width: 2,
-                                      ),
-                                    ),
-                                  ),
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    height: 140 + (_audioLevel * 10),
-                                    width: 140 + (_audioLevel * 10),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: statusColor.withOpacity(0.3),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                AnimatedScale(
-                                  scale: _isSessionActive
-                                      ? 1.0 + (_audioLevel * 0.12)
-                                      : 1.0,
-                                  duration: const Duration(milliseconds: 100),
-                                  child: GestureDetector(
-                                    onTap: _toggleListening,
-                                    child: Container(
-                                      height: 120,
-                                      width: 120,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: _isSessionActive
-                                            ? LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: _sessionState ==
-                                                        "LISTENING"
-                                                    ? [
-                                                        Colors.green.shade700,
-                                                        Colors.green.shade500
-                                                      ]
-                                                    : (_sessionState ==
-                                                            "PROCESSING"
-                                                        ? [
-                                                            Colors.blue.shade700,
-                                                            Colors.blue.shade500
-                                                          ]
-                                                        : [
-                                                            Colors.teal.shade700,
-                                                            Colors.teal.shade500
-                                                          ]),
-                                              )
-                                            : null,
-                                        color: _isSessionActive
-                                            ? null
-                                            : Colors.white,
-                                        border: Border.all(
-                                          color: _isSessionActive
-                                              ? Colors.transparent
-                                              : Colors.grey.shade300,
-                                          width: 2,
-                                        ),
-                                        boxShadow: [
-                                          if (_isSessionActive)
-                                            BoxShadow(
-                                              color: statusColor.withOpacity(0.4),
-                                              blurRadius: 30,
-                                              spreadRadius: 4,
-                                            )
-                                          else
-                                            const BoxShadow(
-                                              color: Colors.black12,
-                                              blurRadius: 10,
-                                              spreadRadius: 2,
-                                            ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        !_isSessionActive
-                                            ? Icons.mic
-                                            : _getStatusIcon(_sessionState),
-                                        size: 50,
-                                        color: _isSessionActive
-                                            ? Colors.white
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-
-                            // Status Badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: statusColor.withOpacity(0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            Expanded(
+                              child: PageView(
+                                controller: _voiceModeController,
+                                onPageChanged: _onVoiceModeChanged,
                                 children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: statusColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    !_isSessionActive
-                                        ? 'Offline'
-                                        : _stateLabel,
-                                    style: TextStyle(
-                                      color: !_isSessionActive
-                                          ? Colors.grey.shade700
-                                          : statusColor.withOpacity(0.9),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  _buildLiveKitModePanel(),
+                                  _buildTokenSaverModePanel(),
+                                  _buildUnavailableModePanel(VoiceMode.offlineAgent),
+                                  _buildLongBillModePanel(),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
-
-                            // Speech Display
-                            SizedBox(
-                              height: 20,
-                              child: Text(
-                                _getDisplayText(),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-
-                            // AI Response Display
-                            SizedBox(
-                              height: 24,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      _agentResponse,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            _buildVoiceModeDots(),
                           ],
                         ),
                       ),

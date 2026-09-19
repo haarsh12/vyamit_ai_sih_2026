@@ -1,0 +1,65 @@
+"""Indian GST state metadata shared by validation and invoice calculation."""
+
+from __future__ import annotations
+
+
+# GST registration state/UT codes.  This table is deliberately kept in one
+# place so state-code validation cannot drift between profile and invoice APIs.
+GST_STATES: dict[str, str] = {
+    "01": "Jammu and Kashmir",
+    "02": "Himachal Pradesh",
+    "03": "Punjab",
+    "04": "Chandigarh",
+    "05": "Uttarakhand",
+    "06": "Haryana",
+    "07": "Delhi",
+    "08": "Rajasthan",
+    "09": "Uttar Pradesh",
+    "10": "Bihar",
+    "11": "Sikkim",
+    "12": "Arunachal Pradesh",
+    "13": "Nagaland",
+    "14": "Manipur",
+    "15": "Mizoram",
+    "16": "Tripura",
+    "17": "Meghalaya",
+    "18": "Assam",
+    "19": "West Bengal",
+    "20": "Jharkhand",
+    "21": "Odisha",
+    "22": "Chhattisgarh",
+    "23": "Madhya Pradesh",
+    "24": "Gujarat",
+    "26": "Dadra and Nagar Haveli and Daman and Diu",
+    "27": "Maharashtra",
+    "28": "Andhra Pradesh (old code)",
+    "29": "Karnataka",
+    "30": "Goa",
+    "31": "Lakshadweep",
+    "32": "Kerala",
+    "33": "Tamil Nadu",
+    "34": "Puducherry",
+    "35": "Andaman and Nicobar Islands",
+    "36": "Telangana",
+    "37": "Andhra Pradesh",
+    "38": "Ladakh",
+    "97": "Other Territory",
+}
+
+# 28 was the original Andhra Pradesh code; 37 is Andhra Pradesh after the
+# Telangana split.  Both can occur in historical data and are accepted here.
+
+GST_STATE_NAMES_TO_CODES = {
+    name.casefold(): code for code, name in GST_STATES.items()
+}
+
+# Widely used names accepted on input.  Invoice snapshots always use the
+# canonical display names above, so aliases cannot create inconsistent data.
+GST_STATE_NAMES_TO_CODES.update(
+    {
+        "nct of delhi": "07",
+        "orissa": "21",
+        "pondicherry": "34",
+        "andhra pradesh old code": "28",
+    }
+)

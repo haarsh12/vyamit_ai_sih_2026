@@ -94,8 +94,6 @@ def main():
         # Voice/TTS
         ("CARTESIA_API_KEY", True, True),
         ("CARTESIA_VOICE_ID", True, False),
-        ("MISTRAL_API_KEY", True, True),
-        ("MISTRAL_MODEL", True, False),
         
         # Optional integrations
         ("FAST2SMS_API_KEY", False, True),

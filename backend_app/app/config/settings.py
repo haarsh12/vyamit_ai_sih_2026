@@ -53,8 +53,6 @@ class Settings(BaseSettings):
     cartesia_api_key: SecretStr | None = None
     cartesia_tts_model: str = "sonic-3"
     cartesia_voice_id: str = ""
-    mistral_api_key: SecretStr | None = None
-    mistral_model: str = ""
 
     fast2sms_api_key: SecretStr | None = None
     fast2sms_base_url: str = "https://www.fast2sms.com/dev/bulkV2"
@@ -148,8 +146,6 @@ class Settings(BaseSettings):
             ("VERTEX_GEMINI_MODEL", self.vertex_gemini_model),
             ("CARTESIA_API_KEY", self.cartesia_api_key),
             ("CARTESIA_VOICE_ID", self.cartesia_voice_id),
-            ("MISTRAL_API_KEY", self.mistral_api_key),
-            ("MISTRAL_MODEL", self.mistral_model),
         ]
         missing = [name for name, value in required if not _has_value(value)]
         if missing:
