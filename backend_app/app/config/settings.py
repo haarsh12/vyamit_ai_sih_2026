@@ -50,9 +50,11 @@ class Settings(BaseSettings):
     vertex_embedding_model: str = "text-embedding-004"
     vertex_embedding_dimension: int = Field(default=768, ge=1, le=4096)
 
-    cartesia_api_key: SecretStr | None = None
-    cartesia_tts_model: str = "sonic-3"
-    cartesia_voice_id: str = ""
+    # LiveKit voice uses Google Cloud for both streaming STT and TTS. Gemini
+    # remains the Vertex AI LLM; no third-party TTS credential is required.
+    google_tts_language: str = "hi-IN"
+    google_tts_model: str = "gemini-2.5-flash-tts"
+    google_tts_speaking_rate: float = Field(default=1.0, ge=0.6, le=1.5)
 
     fast2sms_api_key: SecretStr | None = None
     fast2sms_base_url: str = "https://www.fast2sms.com/dev/bulkV2"
@@ -144,8 +146,6 @@ class Settings(BaseSettings):
         required = [
             ("GOOGLE_APPLICATION_CREDENTIALS", self.google_application_credentials),
             ("VERTEX_GEMINI_MODEL", self.vertex_gemini_model),
-            ("CARTESIA_API_KEY", self.cartesia_api_key),
-            ("CARTESIA_VOICE_ID", self.cartesia_voice_id),
         ]
         missing = [name for name, value in required if not _has_value(value)]
         if missing:

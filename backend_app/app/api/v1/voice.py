@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,7 @@ from app.schemas.voice import VoiceConnectionDetails, VoiceTokenRequest
 
 
 router = APIRouter(prefix="/voice", tags=["realtime voice"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/token", response_model=VoiceConnectionDetails, status_code=status.HTTP_201_CREATED)
@@ -28,4 +31,5 @@ async def create_connection(
             session, await get_tenant_context(session, user_id), payload, settings
         )
     except RuntimeError as error:
+        logger.warning("voice_token_configuration_error reason=%s", str(error))
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Voice service is not configured") from error

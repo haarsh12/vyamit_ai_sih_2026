@@ -32,6 +32,7 @@ class LongBillSpeechService {
   String _committedTranscript = '';
   String _currentHypothesis = '';
   String? _localeId;
+  bool _preferOnDeviceRecognition = true;
 
   bool get isRecording => _isRecording;
   String get transcript => _composeTranscript();
@@ -61,13 +62,6 @@ class LongBillSpeechService {
     onTranscriptChanged('');
     onStatusChanged('Listening on this device…');
     await _listen();
-    if (!_speech.isListening) {
-      _isRecording = false;
-      return const LongBillSpeechStartResult(
-        false,
-        'Could not start speech recognition. Check microphone permission and an installed language.',
-      );
-    }
     return const LongBillSpeechStartResult(true, 'Listening…');
   }
 
@@ -104,9 +98,11 @@ class LongBillSpeechService {
           listenMode: stt.ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,
-          onDevice: true,
-          listenFor: const Duration(minutes: 1),
-          pauseFor: const Duration(seconds: 5),
+          // Prefer offline recognition, but keep the manual recording usable
+          // on phones that do not have an offline language pack installed.
+          onDevice: _preferOnDeviceRecognition,
+          listenFor: const Duration(minutes: 5),
+          pauseFor: const Duration(seconds: 12),
         ),
       );
     } catch (_) {
@@ -160,6 +156,11 @@ class LongBillSpeechService {
   void _handleError(dynamic error) {
     if (!_isRecording || _manualStop) return;
     final permanent = error?.permanent == true;
+    if (permanent && _preferOnDeviceRecognition) {
+      _preferOnDeviceRecognition = false;
+      _scheduleRestart('Offline speech is unavailable. Using the device recognizer…');
+      return;
+    }
     if (permanent) {
       _isRecording = false;
       onStatusChanged('Speech recognition stopped. Check the on-device language setting.');

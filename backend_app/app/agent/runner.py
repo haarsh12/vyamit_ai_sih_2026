@@ -193,25 +193,16 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         final = bool(_event_value(event, "is_final", False))
         transcript = _event_value(event, "transcript", "")
         
-        # Update TTS language for next utterance
+        # Google TTS shares the service-account credentials used by STT. Only
+        # switch locale here; Google selects the configured compatible voice.
         if final and language in {"en", "hi", "mr"}:
-            # Map language codes for Google TTS
-            tts_voice_map = {
-                "en": "en-US-Standard-A",
-                "hi": "hi-IN-Standard-A", 
-                "mr": "mr-IN-Standard-A"
-            }
             lang_code_map = {
                 "en": "en-US",
                 "hi": "hi-IN",
                 "mr": "mr-IN"
             }
-            if language in tts_voice_map:
-                session.tts.update_options(
-                    voice=tts_voice_map[language],
-                    language=lang_code_map[language]
-                )
-                logger.info(f"🌐 [{room_name}] TTS voice updated to: {tts_voice_map[language]}")
+            session.tts.update_options(language=lang_code_map[language])
+            logger.info(f"🌐 [{room_name}] Google TTS language updated to: {lang_code_map[language]}")
         
         # Log final transcripts and start timing
         if final:
@@ -377,5 +368,7 @@ if __name__ == "__main__":
         get_settings().require_agent_providers()
         cli.run_app(server)
     except RuntimeError as error:
-        logger.error("agent_configuration_error", extra={"error_type": type(error).__name__})
+        # This validation error names only an absent configuration key, never
+        # its credential value, so local setup errors remain actionable.
+        logger.error("agent_configuration_error reason=%s", str(error))
         raise SystemExit(2) from error

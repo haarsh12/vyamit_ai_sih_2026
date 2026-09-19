@@ -25,8 +25,6 @@ _MAX_DRAFT_ITEMS = 30
 _MAX_SEGMENTS_RETURNED = 12
 _DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
 _NUMBER_WORDS: dict[str, Decimal] = {
-    "a": Decimal("1"),
-    "an": Decimal("1"),
     "one": Decimal("1"),
     "two": Decimal("2"),
     "three": Decimal("3"),
@@ -65,7 +63,7 @@ _QUANTITY_PATTERN = re.compile(
     rf"(?<![\w.])(?P<amount>\d+(?:\.\d+)?|{_NUMBER_ALTERNATIVES})\s*"
     r"(?P<unit>kg|kilo(?:gram)?s?|किलो(?:ग्राम)?|g|gm|grams?|ग्राम|"
     r"l|lit(?:er|re)?s?|लीटर|piece(?:s)?|pcs?|packet(?:s)?|pack(?:s)?|"
-    r"पीस|पैकेट)?",
+    r"पीस|पैकेट)?(?![\w.])",
     re.IGNORECASE,
 )
 
@@ -138,25 +136,39 @@ def _find_catalog_mentions(transcript: str, catalog: list[Item]) -> list[_Catalo
 
 
 def _quantity_for_mention(transcript: str, mention: _CatalogMention, next_start: int) -> Decimal:
-    """Read the nearest spoken quantity around one catalogue mention."""
+    """Read a quantity immediately before or after one catalogue mention.
 
-    start = max(0, mention.start - 32)
-    end = min(len(transcript), max(mention.end + 32, next_start))
-    context = transcript[start:end].translate(_DEVANAGARI_DIGITS)
-    candidates: list[tuple[int, Decimal, str | None]] = []
-    for found in _QUANTITY_PATTERN.finditer(context):
-        raw_amount = found.group("amount").casefold()
-        try:
-            amount = _NUMBER_WORDS.get(raw_amount, Decimal(raw_amount))
-        except Exception:
-            continue
-        if amount <= 0 or amount > Decimal("100000"):
-            continue
-        distance = abs((start + found.start()) - mention.start)
-        candidates.append((distance, amount, found.group("unit")))
+    A Long Bill often says either ``2 kg aata`` or ``aata 2 kg``.  We score
+    explicit units first and keep the search inside this item's local segment,
+    so a following item's quantity cannot become this item's quantity.
+    """
+
+    before_start = max(0, mention.start - 48)
+    after_end = min(len(transcript), min(next_start, mention.end + 48))
+    candidates: list[tuple[int, int, Decimal, str | None]] = []
+    for context, absolute_start, is_before in (
+        (transcript[before_start:mention.start], before_start, True),
+        (transcript[mention.end:after_end], mention.end, False),
+    ):
+        for found in _QUANTITY_PATTERN.finditer(context.translate(_DEVANAGARI_DIGITS)):
+            raw_amount = found.group("amount").casefold()
+            try:
+                amount = _NUMBER_WORDS.get(raw_amount)
+                if amount is None:
+                    amount = Decimal(raw_amount)
+            except Exception:
+                continue
+            if amount <= 0 or amount > Decimal("100000"):
+                continue
+            absolute_edge = absolute_start + (found.end() if is_before else found.start())
+            distance = (
+                mention.start - absolute_edge if is_before else absolute_edge - mention.end
+            )
+            # Explicit units are less ambiguous than a bare number.
+            candidates.append((0 if found.group("unit") else 1, distance, amount, found.group("unit")))
     if not candidates:
         return Decimal("1")
-    _, amount, spoken_unit = min(candidates, key=lambda candidate: candidate[0])
+    _, _, amount, spoken_unit = min(candidates, key=lambda candidate: (candidate[0], candidate[1]))
     return _convert_quantity(amount, spoken_unit, mention.item.unit)
 
 

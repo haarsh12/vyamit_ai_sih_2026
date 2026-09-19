@@ -68,6 +68,7 @@ class TokenSaverVoiceService {
   String? _localeId;
   bool _usesNativeAec = false;
   bool _nativeAecUnavailable = false;
+  bool _preferOnDeviceRecognition = true;
 
   bool get isActive => _isActive;
   bool get isListening => _speech.isListening;
@@ -261,7 +262,11 @@ class TokenSaverVoiceService {
           listenMode: stt.ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,
-          onDevice: true,
+          // Keep offline recognition as the first choice. Some Android phones
+          // have no downloaded offline language model; use the platform's
+          // normal recognizer only after that capability reports a permanent
+          // failure, rather than leaving the mode silent.
+          onDevice: _preferOnDeviceRecognition,
           listenFor: const Duration(minutes: 1),
           pauseFor: const Duration(seconds: 4),
         ),
@@ -382,6 +387,15 @@ class TokenSaverVoiceService {
   void _handleSpeechError(dynamic error) {
     if (!_isActive) return;
     if (error?.permanent == true) {
+      if (_preferOnDeviceRecognition) {
+        _preferOnDeviceRecognition = false;
+        _setState(
+          TokenSaverSessionState.connecting,
+          'Offline speech is unavailable. Starting device recognition…',
+        );
+        _scheduleRecognizerRestart();
+        return;
+      }
       _setState(TokenSaverSessionState.error, 'Speech recognition stopped. Check the installed on-device language.');
       return;
     }

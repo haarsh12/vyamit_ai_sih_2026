@@ -7,13 +7,13 @@ the same package and Supabase PostgreSQL database:
 - **API:** FastAPI authentication, inventory, GST, bills/analytics, doctor
   records, compatibility endpoints, health checks, and short-lived LiveKit
   token minting.
-- **Agent:** LiveKit `AgentServer` running Google STT, Gemini on Vertex AI,
-  Cartesia TTS, and tenant-scoped read tools.
+- **Agent:** LiveKit `AgentServer` running Google STT and Google TTS, Gemini
+  on Vertex AI, and tenant-scoped read tools.
 
 ## Security invariants
 
 - Flutter receives only an application JWT and a short-lived LiveKit participant
-  token. It never receives database, LiveKit API, Google, Cartesia, or
+  token. It never receives database, LiveKit API, Google, or
   SMS credentials.
 - The API creates every LiveKit room and participant identity. The agent checks
   the pair against `voice_sessions` before making data tools available.

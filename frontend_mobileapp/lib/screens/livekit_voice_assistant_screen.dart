@@ -562,7 +562,10 @@ class _LiveKitVoiceAssistantScreenState
     if (value == value.toInt()) {
       return value.toInt().toString();
     }
-    return value.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+    return value
+        .toStringAsFixed(3)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 
   String _extractQuantityNumber(String qtyDisplay) {

@@ -8,7 +8,6 @@ httpx<1,>=0.28
 livekit-agents<2,>=1.6
 livekit-api<2,>=1.2
 livekit-plugins-ai-coustics<1,>=0.3
-livekit-plugins-cartesia<2,>=1.6
 livekit-plugins-google<2,>=1.6
 pydantic-settings<3,>=2.7
 pydantic<3,>=2.10

@@ -69,13 +69,11 @@ services:
       - key: VERTEX_EMBEDDING_DIMENSION
         value: 768
       
-      # Voice and TTS Configuration - MUST be set in Render Dashboard (Secret)
-      - key: CARTESIA_API_KEY
-        sync: false
-      - key: CARTESIA_TTS_MODEL
-        value: sonic-3
-      - key: CARTESIA_VOICE_ID
-        sync: false
+      # Google Cloud supplies STT and TTS through the mounted service account.
+      - key: GOOGLE_TTS_LANGUAGE
+        value: hi-IN
+      - key: GOOGLE_TTS_MODEL
+        value: gemini-2.5-flash-tts
       - key: ENABLE_ENHANCED_NOISE_CANCELLATION
         value: false
       

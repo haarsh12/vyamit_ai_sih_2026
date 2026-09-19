@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from google.genai.types import HttpOptions
-from livekit.plugins import cartesia, google
+from livekit.plugins import google
 
 from app.config.settings import Settings
 from app.retrieval.vertex import load_vertex_authentication
@@ -44,14 +44,13 @@ def create_llm(settings: Settings) -> google.LLM:
     )
 
 
-def create_tts(settings: Settings) -> cartesia.TTS:
-    """Create Cartesia TTS optimized for minimal latency."""
-    
-    return cartesia.TTS(
-        model=settings.cartesia_tts_model,
-        voice=settings.cartesia_voice_id,
-        api_key=settings.cartesia_api_key.get_secret_value(),
-        language="en",  # Will be updated dynamically based on detected speech language
-        speed=1.15,  # Slightly faster for more responsive feel
-        # Cartesia's default settings already optimize for low latency
+def create_tts(settings: Settings) -> google.TTS:
+    """Create Google Cloud TTS with the server's service-account credentials."""
+
+    return google.TTS(
+        language=settings.google_tts_language,
+        model_name=settings.google_tts_model,
+        location=settings.google_cloud_location,
+        credentials_file=str(settings.google_credentials_path),
+        speaking_rate=settings.google_tts_speaking_rate,
     )

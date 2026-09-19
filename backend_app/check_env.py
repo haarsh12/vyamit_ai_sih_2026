@@ -91,9 +91,8 @@ def main():
         ("VERTEX_GEMINI_MODEL", True, False),
         ("VERTEX_EMBEDDING_MODEL", False, False),
         
-        # Voice/TTS
-        ("CARTESIA_API_KEY", True, True),
-        ("CARTESIA_VOICE_ID", True, False),
+        # Google Cloud supplies both STT and TTS for the voice agent.
+        ("GOOGLE_TTS_MODEL", False, False),
         
         # Optional integrations
         ("FAST2SMS_API_KEY", False, True),
