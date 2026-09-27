@@ -131,7 +131,13 @@ class LongBillSpeechService {
     try {
       final words = result?.recognizedWords;
       if (words is! String || words.trim().isEmpty) return;
-      _currentHypothesis = words.trim();
+      final clean = words.trim();
+      if (_currentHypothesis.isNotEmpty &&
+          !clean.startsWith(_currentHypothesis) &&
+          !_currentHypothesis.startsWith(clean)) {
+        _commitCurrentHypothesis();
+      }
+      _currentHypothesis = clean;
       if (result?.finalResult == true) {
         _commitCurrentHypothesis();
       }

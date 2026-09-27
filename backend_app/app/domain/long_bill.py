@@ -136,12 +136,7 @@ def _find_catalog_mentions(transcript: str, catalog: list[Item]) -> list[_Catalo
 
 
 def _quantity_for_mention(transcript: str, mention: _CatalogMention, next_start: int) -> Decimal:
-    """Read a quantity immediately before or after one catalogue mention.
-
-    A Long Bill often says either ``2 kg aata`` or ``aata 2 kg``.  We score
-    explicit units first and keep the search inside this item's local segment,
-    so a following item's quantity cannot become this item's quantity.
-    """
+    """Read a quantity immediately before or after one catalogue mention."""
 
     before_start = max(0, mention.start - 48)
     after_end = min(len(transcript), min(next_start, mention.end + 48))
@@ -164,7 +159,6 @@ def _quantity_for_mention(transcript: str, mention: _CatalogMention, next_start:
             distance = (
                 mention.start - absolute_edge if is_before else absolute_edge - mention.end
             )
-            # Explicit units are less ambiguous than a bare number.
             candidates.append((0 if found.group("unit") else 1, distance, amount, found.group("unit")))
     if not candidates:
         return Decimal("1")
@@ -180,19 +174,30 @@ class LongBillService:
     ) -> LongBillTranscriptResponse:
         from app.domain.token_saver import token_saver_service
 
-        # First, process transcript via shared LLM billing service
+        # Redirect non-billing questions in Long Bill mode
         result = await token_saver_service.process(session, tenant, transcript)
 
-        if result.type == "BILL" and result.draft is not None:
+        if result.type == "QUERY":
+            return LongBillTranscriptResponse(
+                status="needs_review",
+                message="Sawal poochhne ke liye Voice Agent mode ka use karein.",
+                resolved_item_count=0,
+                unresolved_segments=[],
+            )
+
+        if result.draft is not None:
+            msg = "Long Bill draft is ready."
+            if result.unresolved_items:
+                msg = f"Kripya {result.unresolved_items[0]} ka rate bataiye."
             return LongBillTranscriptResponse(
                 status="draft",
-                message=result.message or "Long Bill draft is ready to review.",
+                message=msg,
                 draft=result.draft,
-                resolved_item_count=len(result.draft.items),
+                resolved_item_count=len(result.draft.state.items),
                 unresolved_segments=result.unresolved_items or [],
             )
 
-        # Fallback to deterministic regex mentions if LLM did not return a draft bill
+        # Fallback to deterministic catalogue mention search if LLM did not return a draft bill directly
         catalog = await inventory_search_service.list_catalog(session, tenant)
         if catalog:
             mentions = _find_catalog_mentions(transcript, catalog)
@@ -218,28 +223,36 @@ class LongBillService:
                 )
 
             if proposed_items:
-                total_amount = sum((item["total"] for item in proposed_items), Decimal("0.00"))
+                total_amount = sum((item["total"] for item in proposed_items), Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 payload = BillCreate.model_validate(
                     {
                         "items": proposed_items,
-                        "total_amount": total_amount.quantize(Decimal("0.01")),
+                        "total_amount": total_amount,
                         "payment_method": "cash",
                         "bill_type": "printed",
                         "billing_source": "voice",
                     }
                 )
                 draft = await workflow_service.create_bill_draft(session, tenant, payload)
+                msg = "Long Bill draft is ready."
+                if unresolved_segments:
+                    msg = f"Kripya {unresolved_segments[0]} ka rate bataiye."
                 return LongBillTranscriptResponse(
                     status="draft",
-                    message="Long Bill draft is ready to review.",
+                    message=msg,
                     draft=draft,
                     resolved_item_count=len(proposed_items),
                     unresolved_segments=unresolved_segments[:_MAX_SEGMENTS_RETURNED],
                 )
 
+        # If zero items could be resolved
+        fallback_msg = "Kripya items ka rate bataiye."
+        if result.unresolved_items:
+            fallback_msg = f"Kripya {result.unresolved_items[0]} ka rate bataiye."
+
         return LongBillTranscriptResponse(
             status="needs_review",
-            message=result.message or "No items were recognized. Review the transcript or speak item name, price, and quantity.",
+            message=fallback_msg,
             resolved_item_count=0,
             unresolved_segments=(result.unresolved_items or [])[:_MAX_SEGMENTS_RETURNED],
         )

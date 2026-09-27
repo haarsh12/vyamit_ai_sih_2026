@@ -298,7 +298,9 @@ class _LiveKitVoiceAssistantScreenState
       if (!mounted) return;
       final message = response['message']?.toString() ?? 'Long Bill review is ready.';
       final draft = response['draft'];
-      if (response['status'] == 'draft' && draft is Map) {
+      final status = response['status']?.toString();
+      final unresolvedSegments = response['unresolved_segments'];
+      if (status == 'draft' && draft is Map) {
         _applyBillDraftPayload(
           Map<String, dynamic>.from(draft),
           replaceExistingBill: true,
@@ -307,10 +309,16 @@ class _LiveKitVoiceAssistantScreenState
           _isManualLiveBillOpen = true;
           _longBillStatus = message;
         });
+        // Long Bill TTS speaks ONLY when an item price is missing / unresolved.
+        if (unresolvedSegments is List && unresolvedSegments.isNotEmpty) {
+          unawaited(_speakLongBillResponse(message));
+        }
       } else {
         setState(() => _longBillStatus = message);
+        if (message.isNotEmpty) {
+          unawaited(_speakLongBillResponse(message));
+        }
       }
-      unawaited(_speakLongBillResponse(message));
     } catch (_) {
       if (!mounted) return;
       setState(() {

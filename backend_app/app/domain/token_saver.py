@@ -72,6 +72,38 @@ def decode_token_saver_ticket(ticket: str, settings: Settings | None = None) -> 
         return None
 
 
+def _latin_item_name(name: str) -> str:
+    """Format requested item name for receipt printer compatibility while preserving the user's requested word."""
+
+    clean = name.strip()
+    if not clean:
+        return "Item"
+    devanagari_map = {
+        "गेहूं": "Gehun",
+        "गेहू": "Gehun",
+        "गेहूँ": "Gehun",
+        "आटा": "Aata",
+        "चावल": "Chawal",
+        "टमाटर": "Tamatar",
+        "धनिया": "Dhaniya",
+        "चीनी": "Chini",
+        "शक्कर": "Shakkar",
+        "दाल": "Daal",
+        "तेल": "Tel",
+        "दूध": "Doodh",
+        "नमक": "Namak",
+        "हल्दी": "Haldi",
+        "मिर्च": "Mirch",
+        "जीरा": "Jeera",
+        "प्याज": "Pyaz",
+        "आलू": "Aloo",
+    }
+    for dev, lat in devanagari_map.items():
+        clean = clean.replace(dev, lat)
+    latin_only = re.sub(r"[^\x00-\x7F]+", "", clean).strip()
+    return latin_only.title()[:120] if latin_only else "Item"
+
+
 def _compact_catalog(catalog: list[object]) -> list[dict[str, object]]:
     """Project the catalogue into plain data, never instructions, for the model."""
 
@@ -120,7 +152,7 @@ Return a JSON object only with exactly these keys:
   "query_param": "optional string parameter (e.g. search keyword, customer name, or days like '1' for today, '7', '30')",
   "items": [
     {{
-      "name": "item name in Latin script ONLY (Hinglish like Chawal, Tamatar, Sugar, Dhaniya)",
+      "name": "item name in Latin script ONLY (preserve user's spoken word e.g. Gehun, Tamatar, Chawal)",
       "quantity": positive number,
       "unit": "kg/litre/piece/packet/unit",
       "price": optional number (use catalogue price if available),
@@ -128,12 +160,13 @@ Return a JSON object only with exactly these keys:
     }}
   ],
   "customer_name": "optional Latin-script name (Hinglish)",
-  "message": "short helpful customer-facing response in the customer's spoken language"
+  "message": "short conversational single sentence (4 to 5 words max in Hinglish)"
 }}
 
 Rules:
 1. FOR BILL TRANSACTIONS:
-   - PRINTER COMPATIBILITY: customer_name and item names MUST be in Latin script ONLY (Hinglish like "Dhaniya", "Sugar", "Tamatar").
+   - ITEM NAME PRESERVATION: Keep the EXACT item name spoken by the user (formatted in Latin script e.g. "Gehun", "Tamatar", "Chawal"). DO NOT substitute AI's own words or rename "Gehun" to "Aata".
+   - PRINTER COMPATIBILITY: customer_name and item names MUST be in Latin script ONLY.
    - INDIAN RETAIL QUANTITIES:
      * "एक पाव" / "1 पाव" / "पाव" (1 Paav) = 0.25 kg (250 gm).
      * "आधा किलो" / "1/2 kg" = 0.5 kg.
@@ -145,7 +178,7 @@ Rules:
      * "₹50 किलो के हिसाब से" or "50 रुपये किलो" specifies the RATE/PRICE = 50 per kg, NOT the quantity!
    - PRICE LOOKUP: Always check the catalogue first for item price! If item is in catalogue, use catalogue price.
    - Non-catalogue items with spoken price/rate: include them with calculated total.
-   - If an item has NO price and is not in catalogue, ask for the missing price in the "message".
+   - If an item has NO price and is not in catalogue, ask for missing price in a 4-5 words sentence e.g. "Kripya Tamatar ka rate bataiye."
 
 2. FOR QUERIES / QUESTIONS:
    - Set "type": "QUERY".
@@ -154,6 +187,16 @@ Rules:
    - If user asks if an item is in stock or its price ("chawal hai kya", "tamatar ka rate kya hai"): set "query_type": "INVENTORY_SEARCH", set "query_param": item name.
    - If user asks about customer info or bill history ("Ramesh ka bill", "customer details"): set "query_type": "CUSTOMER_INFO", set "query_param": customer name.
    - For general greetings or questions: set "query_type": "GENERAL".
+
+3. CONVERSATIONAL SINGLE SENTENCE FORMAT (STRICT):
+   - The "message" field MUST be a SHORT CONVERSATIONAL SINGLE SENTENCE of 4 TO 5 WORDS ONLY (in Hinglish/Hindi).
+   - NEVER output long structured reports, technical bullet points, or multi-sentence paragraphs.
+   - Examples:
+     * Bill created: "Aapka bill ban gaya hai."
+     * Missing price: "Kripya Tamatar ka rate bataiye."
+     * Sales summary: "Aaj ki sale 1250 rupaye hai."
+     * Shop details: "Dukaan Rajesh Sharma ki hai."
+     * Stock/Price query: "Tamatar 40 rupaye kilo hai."
 """
 
 
@@ -298,10 +341,10 @@ class TokenSaverService:
                 timeout=25,
             )
         except TimeoutError:
-            return TokenSaverProcessResponse(type="ERROR", message="The assistant took too long. Please try again.")
+            return TokenSaverProcessResponse(type="ERROR", message="Kripya phir se koshish karein.")
         except Exception as exc:
             logger.exception("TokenSaverService process failed: %s", exc)
-            return TokenSaverProcessResponse(type="ERROR", message="Token Saver is temporarily unavailable. Please try again.")
+            return TokenSaverProcessResponse(type="ERROR", message="Kripya phir se koshish karein.")
 
         response_type = str(model_output.get("type", "ERROR")).upper()
         message = str(model_output.get("message") or "").strip()
@@ -312,65 +355,62 @@ class TokenSaverService:
             query_param = str(model_output.get("query_param") or "").strip()
 
             if query_type == "SHOP_PROFILE":
-                if user:
-                    message = f"Dukaan: {user.shop_name}, Owner: {user.owner_name}, Address: {user.address or 'N/A'}, Category: {tenant.shop_category}."
+                if user and user.shop_name:
+                    message = f"Dukaan {user.shop_name} ki hai."
                 else:
-                    message = message or "Shop profile details are currently unavailable."
+                    message = message or "Dukaan details mil gayi hain."
                 return TokenSaverProcessResponse(type="QUERY", message=message)
 
             elif query_type == "SALES_SUMMARY":
                 days = 1 if query_param in ("1", "today", "aaj") else (int(query_param) if query_param.isdigit() else 30)
                 try:
                     overview = await analytics_service.overview(session, tenant, days=days)
-                    period_text = "today" if days == 1 else f"past {days} days"
-                    revenue = overview.get("total_revenue", 0.0)
-                    bills_count = overview.get("total_bills", 0)
-                    avg_bill = overview.get("average_bill_value", 0.0)
-                    message = f"Sales Overview ({period_text}): Total Revenue ₹{revenue:,.2f} across {bills_count} bills. Average bill ₹{avg_bill:,.2f}."
+                    revenue = int(overview.get("total_revenue", 0.0))
+                    if days == 1:
+                        message = f"Aaj ki sale {revenue:,} rupaye hai."
+                    else:
+                        message = f"Pichle {days} dino ki sale {revenue:,} rupaye."
                 except Exception as exc:
                     logger.warning("Failed to fetch analytics for TokenSaver query: %s", exc)
-                    message = message or "Could not fetch sales summary at the moment."
+                    message = message or "Sales summary nahi mili."
                 return TokenSaverProcessResponse(type="QUERY", message=message)
 
             elif query_type == "INVENTORY_SEARCH":
                 search_term = query_param or transcript
                 try:
-                    matches = await inventory_search_service.search(session, tenant, search_term, limit=3)
-                    if matches:
-                        match_texts = [
-                            f"{printable_catalog_name(m.item) or m.item.names[0]}: ₹{m.item.price}/{m.item.unit}"
-                            for m in matches if m.item
-                        ]
-                        message = "Inventory items: " + ", ".join(match_texts) + "."
+                    matches = await inventory_search_service.search(session, tenant, search_term, limit=1)
+                    if matches and matches[0].item:
+                        item = matches[0].item
+                        p_name = _latin_item_name(search_term) if search_term else (printable_catalog_name(item) or item.names[0])
+                        price_int = int(item.price)
+                        unit_str = item.unit or "kg"
+                        message = f"{p_name} {price_int} rupaye {unit_str} hai."
                     else:
-                        message = f"'{search_term}' is not found in your inventory catalog."
+                        message = f"{search_term} catalog me nahi hai."
                 except Exception as exc:
                     logger.warning("Inventory search failed in query: %s", exc)
-                    message = message or f"Could not complete inventory search for {search_term}."
+                    message = message or f"{search_term} nahi mila."
                 return TokenSaverProcessResponse(type="QUERY", message=message)
 
             elif query_type == "CUSTOMER_INFO":
                 search_term = query_param or transcript
                 try:
-                    cust_matches = await customer_search_service.search(session, tenant, search_term, limit=3)
+                    cust_matches = await customer_search_service.search(session, tenant, search_term, limit=1)
                     if cust_matches:
-                        cust_texts = [
-                            f"{m.customer.name} ({m.customer.phone_number[-4:]}): {m.customer.total_bills} bills, total ₹{m.customer.total_spent}"
-                            for m in cust_matches
-                        ]
-                        message = "Customer info: " + ", ".join(cust_texts) + "."
+                        cust = cust_matches[0].customer
+                        message = f"{cust.name} ke {cust.total_bills} bills hain."
                     else:
-                        message = f"No customer found matching '{search_term}'."
+                        message = f"Grahak {search_term} nahi mila."
                 except Exception as exc:
                     logger.warning("Customer search failed in query: %s", exc)
-                    message = message or f"Could not find customer information for {search_term}."
+                    message = message or "Grahak jankari nahi mili."
                 return TokenSaverProcessResponse(type="QUERY", message=message)
 
-            return TokenSaverProcessResponse(type="QUERY", message=message or "How can I help you today?")
+            return TokenSaverProcessResponse(type="QUERY", message=message or "Aapki kya sahayata karoon?")
 
         # Handle BILL responses
         if response_type != "BILL" or not isinstance(model_output.get("items"), list):
-            return TokenSaverProcessResponse(type="ERROR", message=message or "I could not understand that request.")
+            return TokenSaverProcessResponse(type="ERROR", message=message or "Kripya phir se boliye.")
 
         proposed_by_master_id: dict[str, dict[str, object]] = {}
         on_spot_items: list[dict[str, object]] = []
@@ -379,7 +419,8 @@ class TokenSaverService:
         for raw_item in model_output["items"][:_MAX_ITEMS]:
             if not isinstance(raw_item, dict):
                 continue
-            requested_name = str(raw_item.get("name") or raw_item.get("item") or "").strip()
+            raw_name = str(raw_item.get("name") or raw_item.get("item") or "").strip()
+            requested_name = _latin_item_name(raw_name)
             quantity = _positive_decimal(raw_item.get("quantity", raw_item.get("qty", 1)))
             if not requested_name or quantity is None:
                 continue
@@ -390,12 +431,12 @@ class TokenSaverService:
             elif re.search(r"\b(आधा|aadha|adha|half)\b", transcript, re.IGNORECASE) and quantity > Decimal("2"):
                 quantity = Decimal("0.5")
 
-            # 1. Search catalogue for matching item
+            # 1. Search catalogue for matching item using raw user query
             matches = []
             try:
-                matches = await inventory_search_service.search(session, tenant, requested_name, limit=1)
+                matches = await inventory_search_service.search(session, tenant, raw_name, limit=1)
             except Exception as exc:
-                logger.warning("Search exception for %s: %s", requested_name, exc)
+                logger.warning("Search exception for %s: %s", raw_name, exc)
                 matches = []
 
             catalog_item = matches[0].item if (matches and matches[0].item) else None
@@ -411,12 +452,12 @@ class TokenSaverService:
                     price_dec = None
 
             if catalog_item is not None and price_dec is not None and price_dec > 0:
-                printable_name = printable_catalog_name(catalog_item) or requested_name
                 unit_str = str(catalog_item.unit)[:30] or "unit"
-                existing = proposed_by_master_id.get(catalog_item.master_id)
+                item_key = f"{catalog_item.master_id}_{requested_name}"
+                existing = proposed_by_master_id.get(item_key)
                 if existing is None:
-                    proposed_by_master_id[catalog_item.master_id] = {
-                        "name": printable_name,
+                    proposed_by_master_id[item_key] = {
+                        "name": requested_name,
                         "quantity": quantity,
                         "unit": unit_str,
                         "price": price_dec,
@@ -439,9 +480,8 @@ class TokenSaverService:
                 if price_dec is not None and price_dec > 0:
                     unit_str = str(raw_item.get("unit") or "unit")[:30]
                     total_calc = (quantity * price_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                    latin_name = re.sub(r"[^\x00-\x7F]+", "", requested_name).strip() or "Item"
                     on_spot_items.append({
-                        "name": latin_name[:120],
+                        "name": requested_name[:120],
                         "quantity": quantity,
                         "unit": unit_str,
                         "price": price_dec,
@@ -455,9 +495,9 @@ class TokenSaverService:
         if not proposed_items:
             err_msg = message
             if unresolved_items:
-                err_msg = f"Please specify the price for {', '.join(unresolved_items)}."
-            elif not err_msg or err_msg == "Please try again.":
-                err_msg = "I could not match those items or find their prices in the inventory catalog."
+                err_msg = f"Kripya {unresolved_items[0]} ka rate bataiye."
+            elif not err_msg or len(err_msg) > 30:
+                err_msg = "Item ka rate bataiye."
             return TokenSaverProcessResponse(
                 type="ERROR",
                 message=err_msg,
@@ -467,7 +507,7 @@ class TokenSaverService:
         payload = BillCreate.model_validate(
             {
                 "items": proposed_items,
-                "total_amount": sum((item["total"] for item in proposed_items), Decimal("0.00")),
+                "total_amount": sum((item["total"] for item in proposed_items), Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
                 "customer_name": _safe_customer_name(model_output.get("customer_name")),
                 "payment_method": "cash",
                 "bill_type": "printed",
@@ -475,9 +515,16 @@ class TokenSaverService:
             }
         )
         draft = await workflow_service.create_bill_draft(session, tenant, payload)
+
+        bill_msg = message
+        if unresolved_items:
+            bill_msg = f"Kripya {unresolved_items[0]} ka rate bataiye."
+        elif not bill_msg or len(bill_msg) > 35 or "review" in bill_msg.lower() or "added" in bill_msg.lower():
+            bill_msg = "Aapka bill ban gaya hai."
+
         return TokenSaverProcessResponse(
             type="BILL",
-            message=message or "I added the items to the bill for review.",
+            message=bill_msg,
             draft=draft,
             unresolved_items=unresolved_items[:_MAX_ITEMS],
         )
