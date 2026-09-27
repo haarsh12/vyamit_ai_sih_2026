@@ -472,7 +472,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           )
         else
           SizedBox(
-            height: 100,
+            // 48px avatar + labels + padding need more than 100px.  Keeping
+            // this height explicit prevents clipped customer cards on phones.
+            height: 124,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _verifiedCustomers.length,

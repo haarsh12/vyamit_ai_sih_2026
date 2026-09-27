@@ -72,60 +72,82 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     try {
       draft = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: Row(children: [
-            Icon(isUdhaar ? Icons.add_card_rounded : Icons.payments_rounded, color: isUdhaar ? const Color(0xFFB54708) : AppColors.primaryGreen),
-            const SizedBox(width: 10),
-            Text(isUdhaar ? 'Add udhaar' : 'Record payment'),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(isUdhaar ? 'This will increase the customer’s outstanding balance.' : 'This will reduce the customer’s outstanding balance.', style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ ', border: OutlineInputBorder()),
+        builder: (dialogContext) {
+          var isPreparing = false;
+          String? formError;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+              title: Row(children: [
+                Icon(isUdhaar ? Icons.add_card_rounded : Icons.payments_rounded, color: isUdhaar ? const Color(0xFFB54708) : AppColors.primaryGreen),
+                const SizedBox(width: 10),
+                Text(isUdhaar ? 'Add udhaar' : 'Record payment'),
+              ]),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(isUdhaar ? 'This will increase the customer’s outstanding balance.' : 'This will reduce the customer’s outstanding balance.', style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: amountController,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ ', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLength: 240,
+                    decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
+                  ),
+                  if (formError != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(formError!, style: const TextStyle(color: Color(0xFFB42318), fontSize: 12)),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: noteController,
-                maxLength: 240,
-                decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final amount = double.tryParse(amountController.text.trim());
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Enter a valid amount.')));
-                  return;
-                }
-                try {
-                  final value = await _customerService.createLedgerDraft(
-                    widget.customerId,
-                    entryType: entryType,
-                    amount: amount,
-                    note: noteController.text,
-                  );
-                  if (dialogContext.mounted) Navigator.pop(dialogContext, value);
-                } catch (error) {
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('Could not prepare change: $error')));
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: isUdhaar ? const Color(0xFFB54708) : AppColors.primaryGreen),
-              child: const Text('Review', style: TextStyle(color: Colors.white)),
+              actions: [
+                TextButton(onPressed: isPreparing ? null : () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: isPreparing
+                      ? null
+                      : () async {
+                          final amount = double.tryParse(amountController.text.trim());
+                          if (amount == null || amount <= 0) {
+                            setDialogState(() => formError = 'Enter a valid amount.');
+                            return;
+                          }
+                          setDialogState(() {
+                            isPreparing = true;
+                            formError = null;
+                          });
+                          try {
+                            final value = await _customerService.createLedgerDraft(
+                              widget.customerId,
+                              entryType: entryType,
+                              amount: amount,
+                              note: noteController.text,
+                            );
+                            if (dialogContext.mounted) Navigator.of(dialogContext).pop(value);
+                          } catch (error) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() {
+                                isPreparing = false;
+                                formError = 'Could not prepare change: $error';
+                              });
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: isUdhaar ? const Color(0xFFB54708) : AppColors.primaryGreen),
+                  child: isPreparing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Review', style: TextStyle(color: Colors.white)),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
     } finally {
       amountController.dispose();
@@ -135,12 +157,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Future<void> _confirmLedgerDraft(Map<String, dynamic> draft) async {
-    await showDialog<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => LedgerConfirmationDialog(
+      builder: (_) => LedgerConfirmationDialog(
         draft: draft,
-        onCancel: () => Navigator.pop(dialogContext),
         onConfirm: () async {
           try {
             await _customerService.confirmLedgerDraft(
@@ -148,16 +169,21 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               draft['id'].toString(),
               (draft['version'] as num).toInt(),
             );
-            if (!dialogContext.mounted) return;
-            Navigator.pop(dialogContext);
-            await _loadCustomerData();
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ledger updated.'), backgroundColor: AppColors.primaryGreen));
+            return null;
           } catch (error) {
-            if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('Ledger was not updated: $error'), backgroundColor: Colors.red));
+            return 'Ledger was not updated: $error';
           }
         },
       ),
     );
+    if (confirmed != true || !mounted) return;
+    await _loadCustomerData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ledger updated.'),
+        backgroundColor: AppColors.primaryGreen,
+      ));
+    }
   }
 
   @override

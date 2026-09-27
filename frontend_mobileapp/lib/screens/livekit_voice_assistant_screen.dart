@@ -883,33 +883,30 @@ class _LiveKitVoiceAssistantScreenState
         int.tryParse(draft['customer_id']?.toString() ?? '');
     final version = (draft['version'] as num?)?.toInt() ?? 0;
     if (customerId == null || version < 1) return;
-    await showDialog<void>(
+    String? successMessage;
+    final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => LedgerConfirmationDialog(
+      builder: (_) => LedgerConfirmationDialog(
         draft: draft,
-        onCancel: () => Navigator.pop(dialogContext),
         onConfirm: () async {
           try {
             final response = await _customerService.confirmLedgerDraft(customerId, draftId, version);
-            if (!dialogContext.mounted) return;
-            Navigator.pop(dialogContext);
-            if (mounted) {
-              setState(() => _agentResponse = response['message']?.toString() ?? 'Ledger updated');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(response['message']?.toString() ?? 'Ledger updated'), backgroundColor: AppColors.primaryGreen),
-              );
-            }
+            successMessage = response['message']?.toString() ?? 'Ledger updated';
+            return null;
           } catch (error) {
-            if (dialogContext.mounted) {
-              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                SnackBar(content: Text('Ledger was not updated: $error'), backgroundColor: Colors.red),
-              );
-            }
+            return 'Ledger was not updated: $error';
           }
         },
       ),
     );
+    if (confirmed == true && mounted) {
+      final message = successMessage ?? 'Ledger updated';
+      setState(() => _agentResponse = message);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.primaryGreen),
+      );
+    }
   }
 
   void _openShareModal(BillProvider billProvider) {

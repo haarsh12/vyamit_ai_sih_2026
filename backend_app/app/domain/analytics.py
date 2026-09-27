@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -18,6 +19,9 @@ from app.domain.customer_ledger import customer_ledger_service
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.schemas.analytics import BillCreate
+
+
+_SHOP_TIME_ZONE = ZoneInfo("Asia/Kolkata")
 
 
 class AnalyticsService:
@@ -117,7 +121,11 @@ class AnalyticsService:
                 owner_id=tenant.owner_id, bill_id=bill.id, shop_category=tenant.shop_category,
                 item_name=item.name.strip(), item_category=categories.get(item.name.strip().casefold(), "General"),
                 quantity=item.quantity, unit=item.unit.strip(), price_per_unit=item.price,
-                total_price=item.total, sale_date=now, hour_of_day=now.hour,
+                # Persist UTC timestamps for audits, but group peak-hour
+                # analytics by the shop's local India time.
+                total_price=item.total,
+                sale_date=now,
+                hour_of_day=now.astimezone(_SHOP_TIME_ZONE).hour,
             ))
         
         # Update existing Customer aggregate (for phone-based tracking)

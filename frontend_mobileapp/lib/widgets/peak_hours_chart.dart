@@ -9,10 +9,10 @@ class PeakHoursChart extends StatelessWidget {
   const PeakHoursChart({super.key, required this.peakHours});
 
   String _getHourLabel(int hour) {
-    if (hour == 0) return '12AM';
-    if (hour < 12) return '${hour}AM';
-    if (hour == 12) return '12PM';
-    return '${hour - 12}PM';
+    if (hour == 0) return '12 AM';
+    if (hour < 12) return '$hour AM';
+    if (hour == 12) return '12 PM';
+    return '${hour - 12} PM';
   }
 
   @override
@@ -54,6 +54,8 @@ class PeakHoursChart extends StatelessWidget {
     }
 
     final maxSales = peakHours.map((h) => h.salesCount).reduce((a, b) => a > b ? a : b);
+    final maxY = (maxSales * 1.25).ceilToDouble().clamp(2, double.infinity).toDouble();
+    final yInterval = (maxY / 4).ceilToDouble().clamp(1, double.infinity).toDouble();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -105,7 +107,7 @@ class PeakHoursChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: maxSales.toDouble() * 1.3,
+                maxY: maxY,
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
@@ -173,9 +175,9 @@ class PeakHoursChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 35,
-                      interval: maxSales > 5 ? (maxSales / 4).ceilToDouble() : 1,
+                      interval: yInterval,
                       getTitlesWidget: (value, meta) {
-                        if (value == 0) return const Text('');
+                        if (value == 0 || value > maxY) return const SizedBox.shrink();
                         return Text(
                           value.toInt().toString(),
                           style: const TextStyle(
@@ -196,7 +198,7 @@ class PeakHoursChart extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxSales > 5 ? (maxSales / 4).ceilToDouble() : 1,
+                  horizontalInterval: yInterval,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: Colors.grey[200],

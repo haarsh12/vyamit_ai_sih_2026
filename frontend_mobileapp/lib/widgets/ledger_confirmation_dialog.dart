@@ -7,14 +7,16 @@ import '../core/theme.dart';
 /// The backend receives only a draft before this dialog is accepted.
 class LedgerConfirmationDialog extends StatefulWidget {
   final Map<String, dynamic> draft;
-  final Future<void> Function() onConfirm;
-  final VoidCallback onCancel;
+  /// Returns null after a successful write, otherwise a user-facing error.
+  ///
+  /// The dialog owns navigation so a caller never pops this route while this
+  /// widget is still awaiting the confirmation request.
+  final Future<String?> Function() onConfirm;
 
   const LedgerConfirmationDialog({
     super.key,
     required this.draft,
     required this.onConfirm,
-    required this.onCancel,
   });
 
   @override
@@ -23,8 +25,33 @@ class LedgerConfirmationDialog extends StatefulWidget {
 
 class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
   bool _isConfirming = false;
+  String? _confirmationError;
 
   double _amount(String key) => (widget.draft[key] as num?)?.toDouble() ?? 0;
+
+  Future<void> _confirm() async {
+    setState(() {
+      _isConfirming = true;
+      _confirmationError = null;
+    });
+
+    String? error;
+    try {
+      error = await widget.onConfirm();
+    } catch (exception) {
+      error = 'Ledger was not updated: $exception';
+    }
+    if (!mounted) return;
+
+    if (error == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _isConfirming = false;
+      _confirmationError = error;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,12 +108,26 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
               const SizedBox(height: 12),
               Text('Note: ${widget.draft['note']}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
             ],
+            if (_confirmationError != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F0),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _confirmationError!,
+                  style: const TextStyle(color: Color(0xFFB42318), fontSize: 12),
+                ),
+              ),
+            ],
             const SizedBox(height: 22),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isConfirming ? null : widget.onCancel,
+                    onPressed: _isConfirming ? null : () => Navigator.of(context).pop(false),
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13), side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                     child: const Text('No, cancel', style: TextStyle(color: AppColors.textBlack, fontWeight: FontWeight.w700)),
                   ),
@@ -94,16 +135,7 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _isConfirming
-                        ? null
-                        : () async {
-                            setState(() => _isConfirming = true);
-                            try {
-                              await widget.onConfirm();
-                            } finally {
-                              if (mounted) setState(() => _isConfirming = false);
-                            }
-                          },
+                    onPressed: _isConfirming ? null : _confirm,
                     style: ElevatedButton.styleFrom(backgroundColor: accent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                     child: _isConfirming
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
