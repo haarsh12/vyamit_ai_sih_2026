@@ -11,6 +11,10 @@ if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
     echo "Google credentials configured at $GOOGLE_APPLICATION_CREDENTIALS"
 fi
 
+# Keep the database schema aligned with the application before accepting traffic.
+echo "Applying database migrations..."
+alembic upgrade head
+
 # Start the FastAPI application
 echo "Starting FastAPI application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}

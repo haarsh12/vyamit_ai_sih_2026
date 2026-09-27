@@ -5,6 +5,7 @@ class GstInvoiceDraft {
   final String? issueDate;
   final String? dueDate;
   final String paymentMethod;
+  final int? verifiedCustomerId;
   final String paymentStatus;
   final String? referenceNumber;
   final Map<String, dynamic>? bankDetails;
@@ -16,6 +17,7 @@ class GstInvoiceDraft {
     this.issueDate,
     this.dueDate,
     this.paymentMethod = 'cash',
+    this.verifiedCustomerId,
     this.paymentStatus = 'PAID',
     this.referenceNumber,
     this.bankDetails,
@@ -26,6 +28,8 @@ class GstInvoiceDraft {
     required String customerName,
     String? customerGstin,
     String? customerStateCode,
+    String paymentMethod = 'cash',
+    int? verifiedCustomerId,
   }) {
     String quantityOf(Map<String, dynamic> item) {
       final value = item['qty'] ?? item['quantity'];
@@ -64,6 +68,9 @@ class GstInvoiceDraft {
                 if (item['tax_category'] != null) 'tax_category': item['tax_category'],
               })
           .toList(),
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentMethod.toLowerCase() == 'udhaar' ? 'UNPAID' : 'PAID',
+      verifiedCustomerId: verifiedCustomerId,
     );
   }
 
@@ -83,6 +90,7 @@ class GstInvoiceDraft {
       if (issueDate != null) 'issue_date': _extractDateOnly(issueDate),
       if (dueDate != null) 'due_date': _extractDateOnly(dueDate),
       'payment_method': paymentMethod,
+      if (verifiedCustomerId != null) 'verified_customer_id': verifiedCustomerId,
       'payment_status': paymentStatus,
       if (referenceNumber != null && referenceNumber!.trim().isNotEmpty)
         'reference_number': referenceNumber,
@@ -104,6 +112,7 @@ class GstInvoiceDraft {
     String? issueDate,
     String? dueDate,
     String? paymentMethod,
+    int? verifiedCustomerId,
     String? paymentStatus,
     String? referenceNumber,
     Map<String, dynamic>? bankDetails,
@@ -115,6 +124,7 @@ class GstInvoiceDraft {
       issueDate: issueDate ?? this.issueDate,
       dueDate: dueDate ?? this.dueDate,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      verifiedCustomerId: verifiedCustomerId ?? this.verifiedCustomerId,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       referenceNumber: referenceNumber ?? this.referenceNumber,
       bankDetails: bankDetails ?? this.bankDetails,

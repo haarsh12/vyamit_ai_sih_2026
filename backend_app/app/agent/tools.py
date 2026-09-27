@@ -1,4 +1,4 @@
-"""Read-only LiveKit tool adapters. All authorization stays inside repositories/services."""
+"""Tenant-scoped LiveKit tools; financial changes remain explicitly confirmed."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from app.db.session import get_agent_db_session
 from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
 from app.domain.billing_source import billing_source_from_items
+from app.domain.customer_ledger import customer_ledger_service
 from app.domain.doctor_prescriptions import format_dictation
 from app.domain.gst import gst_billing_service
 from app.domain.voice_inventory import parse_inventory_dictation
@@ -24,6 +25,7 @@ from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.retrieval.customers import customer_search_service
 from app.retrieval.inventory import inventory_search_service
 from app.schemas.analytics import BillCreate
+from app.schemas.ledger import LedgerAdjustmentRequest
 
 
 _DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
@@ -101,12 +103,14 @@ class VyamitAssistant(Agent):
         instructions: str,
         tenant: TenantContext,
         on_bill_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
+        on_ledger_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
         on_prescription_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
         on_inventory_draft_created: Callable[[dict[str, object]], Awaitable[None]] | None = None,
     ) -> None:
         super().__init__(instructions=instructions)
         self.tenant = tenant
         self._on_bill_draft_created = on_bill_draft_created
+        self._on_ledger_draft_created = on_ledger_draft_created
         self._on_prescription_draft_created = on_prescription_draft_created
         self._on_inventory_draft_created = on_inventory_draft_created
         self._last_bill_request_signature: str | None = None
@@ -301,6 +305,76 @@ class VyamitAssistant(Agent):
             return result
 
     @function_tool()
+    async def get_customer_ledger(self, customer_id: int, recent_entries_count: int = 10) -> dict[str, object]:
+        """Get a verified customer's current udhaar balance and recent dated ledger entries.
+
+        Call search_verified_customers first and pass the selected exact result's
+        id. Use this whenever the owner asks how much a customer owes, their
+        udhaar balance, or their recent payments. Never guess a customer.
+        """
+
+        safe_limit = min(max(recent_entries_count, 1), 20)
+        async with get_agent_db_session() as session:
+            statement = await customer_ledger_service.get_statement(
+                session,
+                self.tenant,
+                customer_id,
+                limit=safe_limit,
+            )
+            return statement.model_dump(mode="json")
+
+    @function_tool()
+    async def propose_customer_ledger_adjustment(
+        self,
+        customer_id: int,
+        amount: float,
+        adjustment_type: str,
+        note: str | None = None,
+    ) -> dict[str, object]:
+        """Prepare, but never apply, a customer's udhaar or payment adjustment.
+
+        Use only after search_verified_customers selected an unambiguous
+        customer. ``adjustment_type`` is ``udhaar`` to increase outstanding
+        credit or ``payment`` when the customer has paid and the balance must
+        decrease. This always opens a confirmation box in the app; tell the
+        owner to tap Confirm or Cancel. Do not claim that the balance changed
+        until confirmation succeeds.
+        """
+
+        normalised_type = adjustment_type.strip().casefold()
+        aliases = {"add": "udhaar", "increase": "udhaar", "paid": "payment", "reduce": "payment", "remove": "payment"}
+        normalised_type = aliases.get(normalised_type, normalised_type)
+        if normalised_type not in {"udhaar", "payment"}:
+            return {"created": False, "message": "Please say udhaar add or payment received."}
+
+        try:
+            payload = LedgerAdjustmentRequest(
+                entry_type=normalised_type,
+                amount=amount,
+                note=note,
+                source="voice",
+            )
+        except Exception:
+            return {"created": False, "message": "Please provide a valid positive amount."}
+
+        async with get_agent_db_session() as session:
+            try:
+                draft = await customer_ledger_service.create_adjustment_draft(
+                    session, self.tenant, customer_id, payload
+                )
+            except Exception as error:
+                return {"created": False, "message": str(getattr(error, "detail", "Unable to prepare ledger change."))}
+
+        result: dict[str, object] = {
+            "created": True,
+            "requires_user_confirmation": True,
+            "draft": draft.model_dump(mode="json"),
+        }
+        if self._on_ledger_draft_created is not None:
+            await self._on_ledger_draft_created(result)
+        return result
+
+    @function_tool()
     async def get_sales_summary(self, days: int = 30) -> dict[str, object]:
         """Get aggregate sales totals for the current shop; accepts one to 3650 days."""
 
@@ -322,6 +396,7 @@ class VyamitAssistant(Agent):
         customer_phone: str | None = None,
         customer_name: str | None = None,
         payment_method: str = "cash",
+        verified_customer_id: int | None = None,
     ) -> dict[str, object]:
         """Create or update an editable bill draft directly in the mobile app's Live Bill Box.
 
@@ -339,6 +414,7 @@ class VyamitAssistant(Agent):
                 "customer_phone": customer_phone,
                 "customer_name": customer_name,
                 "payment_method": payment_method,
+                "verified_customer_id": verified_customer_id,
                 "owner_id": self.tenant.owner_id,
                 "shop_category": self.tenant.shop_category,
             }
@@ -470,9 +546,36 @@ class VyamitAssistant(Agent):
                     "customer_phone": customer_phone,
                     "customer_name": customer_name,
                     "payment_method": payment_method,
+                    "verified_customer_id": verified_customer_id,
                 })
             except Exception as err:
                 return {"created": False, "message": f"The proposed bill has invalid data: {err}"}
+
+            if payload.payment_method == "udhaar":
+                # A spoken name alone is never enough to charge an account.
+                # Resolve the exact tenant-scoped verified customer now so the
+                # final bill and ledger entry are linked atomically later.
+                customer_repository = VerifiedCustomerRepository(session)
+                verified_customer = (
+                    await customer_repository.get_by_id(
+                        self.tenant, payload.verified_customer_id
+                    )
+                    if payload.verified_customer_id is not None
+                    else await customer_repository.find_by_exact_name(
+                        self.tenant, payload.customer_name or ""
+                    )
+                )
+                if verified_customer is None:
+                    return {
+                        "created": False,
+                        "message": "Udhaar needs an exact verified customer. Please select or save the customer first.",
+                    }
+                payload = payload.model_copy(
+                    update={
+                        "verified_customer_id": verified_customer.id,
+                        "customer_name": verified_customer.name,
+                    }
+                )
 
             payload_state = payload.model_dump(mode="json")
             request_signature = json.dumps(
@@ -481,6 +584,7 @@ class VyamitAssistant(Agent):
                     "customer_phone": payload_state["customer_phone"],
                     "customer_name": payload_state["customer_name"],
                     "payment_method": payload_state["payment_method"],
+                    "verified_customer_id": payload_state["verified_customer_id"],
                 },
                 sort_keys=True,
                 separators=(",", ":"),

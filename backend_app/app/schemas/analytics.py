@@ -31,6 +31,10 @@ class BillCreate(BaseModel):
     customer_phone: str | None = Field(default=None, max_length=20)
     customer_name: str | None = Field(default=None, max_length=120)
     payment_method: str = Field(default="cash", min_length=1, max_length=30)
+    # An udhaar bill can only affect an explicitly selected verified customer.
+    # This is optional for normal cash/UPI bills and preserves compatibility
+    # with existing callers.
+    verified_customer_id: int | None = Field(default=None, ge=1)
     bill_type: str = Field(default="printed", pattern="^(printed|virtual)$", description="Bill type: 'printed' or 'virtual'")
     billing_source: str = Field(
         default="voice",
@@ -49,3 +53,15 @@ class BillCreate(BaseModel):
     @classmethod
     def normalise_optional_text(cls, value: str | None) -> str | None:
         return value.strip() if value else None
+
+    @field_validator("payment_method")
+    @classmethod
+    def normalise_payment_method(cls, value: str) -> str:
+        clean = value.strip().casefold()
+        aliases = {
+            "udhar": "udhaar",
+            "udhaar": "udhaar",
+            "credit": "udhaar",
+            "due": "udhaar",
+        }
+        return aliases.get(clean, clean or "cash")

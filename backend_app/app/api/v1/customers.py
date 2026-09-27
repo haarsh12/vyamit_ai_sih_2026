@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user_id
 from app.db.session import get_db_session
 from app.domain.customers import customer_service
+from app.domain.customer_ledger import customer_ledger_service
 from app.repositories.tenants import get_tenant_context
 from app.schemas.customers import (
     CustomerBillHistoryResponse,
@@ -16,9 +19,80 @@ from app.schemas.customers import (
     CustomerVerificationSuggestionResponse,
     CustomerVerifyRequest,
 )
+from app.schemas.ledger import (
+    CustomerLedgerResponse,
+    LedgerAdjustmentRequest,
+    LedgerDraftConfirmation,
+    LedgerDraftResponse,
+)
 
 
 router = APIRouter(prefix="/customers", tags=["customers"])
+
+
+@router.get("/{customer_id}/ledger", response_model=CustomerLedgerResponse)
+async def get_customer_ledger(
+    customer_id: int,
+    limit: int = Query(default=100, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> CustomerLedgerResponse:
+    """Return a dated, immutable udhaar statement for one verified customer."""
+    return await customer_ledger_service.get_statement(
+        session,
+        await get_tenant_context(session, user_id),
+        customer_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post(
+    "/{customer_id}/ledger-drafts",
+    response_model=LedgerDraftResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_customer_ledger_draft(
+    customer_id: int,
+    payload: LedgerAdjustmentRequest,
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> LedgerDraftResponse:
+    """Prepare a ledger change for UI review; no balance changes here."""
+    return await customer_ledger_service.create_adjustment_draft(
+        session,
+        await get_tenant_context(session, user_id),
+        customer_id,
+        payload,
+    )
+
+
+@router.post("/{customer_id}/ledger-drafts/{draft_id}/confirm", status_code=status.HTTP_201_CREATED)
+async def confirm_customer_ledger_draft(
+    customer_id: int,
+    draft_id: UUID,
+    payload: LedgerDraftConfirmation,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=128),
+    user_id: int = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, object]:
+    """Apply a user-confirmed ledger proposal exactly once."""
+    if not idempotency_key or not idempotency_key.strip():
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="Idempotency-Key header is required to confirm a ledger change",
+        )
+    result = await customer_ledger_service.confirm_adjustment_draft(
+        session,
+        await get_tenant_context(session, user_id),
+        draft_id,
+        expected_version=payload.expected_version,
+        idempotency_key=idempotency_key.strip(),
+    )
+    if result["customer_id"] != customer_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger confirmation not found")
+    return result
 
 
 @router.post("/verify", status_code=status.HTTP_201_CREATED)

@@ -147,6 +147,7 @@ class GstInvoiceDraftRequest(BaseModel):
     issue_date: date | None = None
     due_date: date | None = None
     payment_method: str = Field(default="cash", min_length=1, max_length=30)
+    verified_customer_id: int | None = Field(default=None, ge=1)
     payment_status: Literal["PAID", "UNPAID", "PARTIAL"] = "PAID"
     reference_number: str | None = Field(default=None, max_length=50)
     bank_name: str | None = Field(default=None, max_length=120)
@@ -159,6 +160,12 @@ class GstInvoiceDraftRequest(BaseModel):
         if self.issue_date and self.due_date and self.due_date < self.issue_date:
             raise ValueError("due_date cannot be before issue_date")
         return self
+
+    @field_validator("payment_method")
+    @classmethod
+    def normalise_payment_method(cls, value: str) -> str:
+        clean = value.strip().casefold()
+        return {"udhar": "udhaar", "credit": "udhaar", "due": "udhaar"}.get(clean, clean)
 
 
 class GstPrintConfirmationRequest(BaseModel):

@@ -172,6 +172,12 @@ class VerifiedCustomer(TimestampMixin, Base):
     embedding_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     total_bills: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_spent: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    # This is a read-optimised balance.  The immutable CustomerLedgerEntry
+    # rows below remain the financial source of truth and are used to show the
+    # complete dated statement to the shop owner.
+    ledger_balance: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), nullable=False, default=0, server_default="0"
+    )
     last_purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
@@ -184,6 +190,46 @@ class VerifiedCustomer(TimestampMixin, Base):
             postgresql_using="hnsw",
             postgresql_ops={"name_embedding": "vector_cosine_ops"},
         ),
+        CheckConstraint("ledger_balance >= 0", name="verified_customer_ledger_non_negative"),
+    )
+
+
+class CustomerLedgerEntry(TimestampMixin, Base):
+    """An append-only change to one verified customer's outstanding udhaar."""
+
+    __tablename__ = "customer_ledger_entries"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    shop_category: Mapped[str] = mapped_column(String(60), nullable=False)
+    verified_customer_id: Mapped[int] = mapped_column(
+        ForeignKey("verified_customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    bill_id: Mapped[int | None] = mapped_column(ForeignKey("bills.id", ondelete="SET NULL"))
+    # ``udhaar`` increases what the customer owes; ``payment`` reduces it.
+    entry_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    source: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(240))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="customer_ledger_amount_positive"),
+        CheckConstraint("balance_after >= 0", name="customer_ledger_balance_non_negative"),
+        CheckConstraint("entry_type IN ('udhaar', 'payment')", name="customer_ledger_entry_type"),
+        Index(
+            "ix_customer_ledger_entries_customer_occurred",
+            "verified_customer_id",
+            "occurred_at",
+        ),
+        Index(
+            "ix_customer_ledger_entries_owner_category_occurred",
+            "owner_id",
+            "shop_category",
+            "occurred_at",
+        ),
+        UniqueConstraint("bill_id", "entry_type", name="uq_customer_ledger_entries_bill_type"),
     )
 
 

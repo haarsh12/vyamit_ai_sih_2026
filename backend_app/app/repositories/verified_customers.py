@@ -148,6 +148,20 @@ class VerifiedCustomerRepository:
         )
         return count or 0
 
+    async def get_for_update(
+        self, tenant: TenantContext, customer_id: int
+    ) -> VerifiedCustomer | None:
+        """Lock a tenant-owned customer for a related financial write."""
+        return await self.session.scalar(
+            select(VerifiedCustomer)
+            .where(
+                VerifiedCustomer.id == customer_id,
+                VerifiedCustomer.owner_id == tenant.owner_id,
+                VerifiedCustomer.shop_category == tenant.shop_category,
+            )
+            .with_for_update()
+        )
+
     async def update_purchase_stats(
         self,
         customer: VerifiedCustomer,

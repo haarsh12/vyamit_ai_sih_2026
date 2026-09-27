@@ -32,6 +32,7 @@ class CustomerMatch:
             "phone_number": self.customer.phone_number,
             "total_bills": self.customer.total_bills,
             "total_spent": float(self.customer.total_spent),
+            "ledger_balance": float(self.customer.ledger_balance),
             "last_purchase_date": (
                 self.customer.last_purchase_date.isoformat()
                 if self.customer.last_purchase_date

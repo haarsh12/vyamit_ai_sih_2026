@@ -14,10 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AuditEvent, GstConfiguration, GstInvoice, GstInvoiceSequence, IdempotencyKey
 from app.db.tenant import TenantContext
+from app.domain.customer_ledger import customer_ledger_service
 from app.gst.calculation import calculate_item, calculate_totals, decimal_to_paise, paise_to_rupees, percent_to_basis_points
 from app.gst.constants import GST_STATES
 from app.gst.validation import validate_state_code, validate_state_matches_code
 from app.repositories.gst import GstRepository
+from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.schemas.gst import GstConfigurationInput, GstInvoiceDraftRequest
 
 
@@ -182,6 +184,19 @@ class GstBillingService:
         configuration = await self._require_tax_invoice_configuration(session, tenant)
         seller = self._seller_snapshot(configuration, request)
         customer = self._customer_snapshot(request, seller)
+        if request.payment_method == "udhaar":
+            if request.verified_customer_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="An udhaar GST invoice must be linked to a verified customer",
+                )
+            if await VerifiedCustomerRepository(session).get_by_id(
+                tenant, request.verified_customer_id
+            ) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Verified customer not found",
+                )
         intra_state = seller["state_code"] == customer["state_code"]
         allowed_rates = self._allowed_rates(configuration)
         trusted_inventory = await GstRepository(session).inventory_by_alias(tenant)
@@ -221,6 +236,7 @@ class GstBillingService:
             "place_of_supply": {"state": GST_STATES[customer["state_code"]], "state_code": customer["state_code"], "tax_type": "CGST_SGST" if intra_state else "IGST"},
             "issue_date": issued_date.isoformat(), "due_date": (request.due_date or issued_date + timedelta(days=30)).isoformat(),
             "payment_method": request.payment_method, "payment_status": request.payment_status,
+            "verified_customer_id": request.verified_customer_id,
             "reference_number": request.reference_number, "items": [item.to_dict() for item in calculated_items],
             "totals": totals.to_dict(), "gst_breakdown": {key: paise_to_rupees(value) for key, value in breakdown.items()},
             "bank_details": {key: seller.get(key) for key in ("bank_name", "account_name", "account_number", "ifsc")},
@@ -277,6 +293,16 @@ class GstBillingService:
         )
         session.add(invoice)
         await session.flush()
+        if request.payment_method == "udhaar" and request.verified_customer_id is not None:
+            await customer_ledger_service.record_gst_invoice_udhaar(
+                session,
+                tenant,
+                customer_id=request.verified_customer_id,
+                invoice_id=invoice.id,
+                invoice_number=invoice_number,
+                amount=Decimal(int(totals["grand_total_paise"])) / Decimal("100"),
+                occurred_at=datetime.now(UTC),
+            )
         result = {"invoice_id": invoice.id, "invoice": canonical}
         request_key.response, request_key.status_code = result, status.HTTP_201_CREATED
         session.add(AuditEvent(

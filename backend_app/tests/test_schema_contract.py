@@ -1,6 +1,6 @@
 """Static schema contracts that must hold before a Supabase migration runs."""
 
-from app.db.models import Bill, Customer, Item
+from app.db.models import Bill, Customer, CustomerLedgerEntry, Item, VerifiedCustomer
 
 
 def test_customer_identity_is_scoped_to_owner_and_shop_category() -> None:
@@ -27,3 +27,21 @@ def test_bill_records_type() -> None:
 
     assert Bill.__table__.c.bill_type.default.arg == "printed"
     assert "ix_bills_bill_type" in index_names
+
+
+def test_verified_customer_ledger_is_non_negative_and_has_an_append_only_entry_table() -> None:
+    customer_checks = {
+        constraint.sqltext.text
+        for constraint in VerifiedCustomer.__table__.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+    entry_checks = {
+        constraint.sqltext.text
+        for constraint in CustomerLedgerEntry.__table__.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+    entry_indexes = {index.name for index in CustomerLedgerEntry.__table__.indexes}
+
+    assert "ledger_balance >= 0" in customer_checks
+    assert {"amount > 0", "balance_after >= 0"} <= entry_checks
+    assert "ix_customer_ledger_entries_customer_occurred" in entry_indexes

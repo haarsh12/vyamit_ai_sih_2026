@@ -16,10 +16,22 @@ class CustomerService {
         '/customers/?limit=$limit&offset=$offset&order_by=$orderBy',
       );
 
-      final customers = (data['customers'] as List)
-          .map((json) => VerifiedCustomer.fromJson(json))
-          .toList();
-      return customers;
+      return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data)).customers;
+    } catch (e) {
+      throw Exception('Failed to load verified customers: $e');
+    }
+  }
+
+  Future<VerifiedCustomerList> getVerifiedCustomerList({
+    int limit = 100,
+    int offset = 0,
+    String orderBy = 'name',
+  }) async {
+    try {
+      final data = await _apiClient.get(
+        '/customers/?limit=$limit&offset=$offset&order_by=$orderBy',
+      );
+      return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data));
     } catch (e) {
       throw Exception('Failed to load verified customers: $e');
     }
@@ -103,5 +115,51 @@ class CustomerService {
     } catch (e) {
       throw Exception('Failed to remove customer: $e');
     }
+  }
+
+  Future<CustomerLedgerStatement> getCustomerLedger(
+    int customerId, {
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    try {
+      final data = await _apiClient.get(
+        '/customers/$customerId/ledger?limit=$limit&offset=$offset',
+      );
+      return CustomerLedgerStatement.fromJson(Map<String, dynamic>.from(data));
+    } catch (e) {
+      throw Exception('Failed to load customer ledger: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> createLedgerDraft(
+    int customerId, {
+    required String entryType,
+    required double amount,
+    String? note,
+  }) async {
+    final response = await _apiClient.post(
+      '/customers/$customerId/ledger-drafts',
+      {
+        'entry_type': entryType,
+        'amount': double.parse(amount.toStringAsFixed(2)),
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      },
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> confirmLedgerDraft(
+    int customerId,
+    String draftId,
+    int expectedVersion,
+  ) async {
+    final requestId = '${DateTime.now().microsecondsSinceEpoch}-$customerId-$draftId';
+    final response = await _apiClient.post(
+      '/customers/$customerId/ledger-drafts/$draftId/confirm',
+      {'expected_version': expectedVersion},
+      extraHeaders: {'Idempotency-Key': requestId},
+    );
+    return Map<String, dynamic>.from(response as Map);
   }
 }

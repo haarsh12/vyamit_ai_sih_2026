@@ -296,6 +296,10 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     async def on_bill_draft(draft: dict[str, object]) -> None:
         logger.info(f"💰 [{room_name}] Bill draft created: {draft.get('draft_id')}")
         await _publish_ui_event(ctx, "bill_draft", **draft)
+
+    async def on_ledger_draft(draft: dict[str, object]) -> None:
+        logger.info("📒 [%s] Ledger adjustment awaiting confirmation", room_name)
+        await _publish_ui_event(ctx, "ledger_adjustment_draft", **draft)
     
     async def on_prescription_draft(draft: dict[str, object]) -> None:
         logger.info(f"📋 [{room_name}] Prescription draft created")
@@ -326,6 +330,7 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         ),
         tenant=tenant,
         on_bill_draft_created=on_bill_draft,
+        on_ledger_draft_created=on_ledger_draft,
         on_prescription_draft_created=on_prescription_draft,
         on_inventory_draft_created=on_inventory_draft,
     )

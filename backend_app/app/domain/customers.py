@@ -13,6 +13,7 @@ from app.db.models import EmbeddingJob, VerifiedCustomer
 from app.db.tenant import TenantContext
 from app.domain.billing_source import billing_source_from_items
 from app.repositories.verified_customers import VerifiedCustomerRepository
+from app.repositories.customer_ledger import CustomerLedgerRepository
 from app.retrieval.customers import customer_search_service
 from app.schemas.customers import CustomerVerificationSuggestionResponse
 from app.workers.embeddings import verified_customer_embedding_source_hash
@@ -257,6 +258,7 @@ class CustomerService:
         )
         
         total_count = await repository.count_all(tenant)
+        total_outstanding_ledger = await CustomerLedgerRepository(session).total_outstanding(tenant)
         
         return {
             "success": True,
@@ -267,6 +269,7 @@ class CustomerService:
                     "phone_number": customer.phone_number,
                     "total_bills": customer.total_bills,
                     "total_spent": float(customer.total_spent),
+                    "ledger_balance": float(customer.ledger_balance),
                     "last_purchase_date": (
                         customer.last_purchase_date.isoformat()
                         if customer.last_purchase_date
@@ -280,6 +283,7 @@ class CustomerService:
             "limit": safe_limit,
             "offset": safe_offset,
             "order_by": order_by,
+            "total_outstanding_ledger": float(total_outstanding_ledger),
         }
 
     async def get_customer_details(
@@ -318,6 +322,7 @@ class CustomerService:
                 "phone_number": customer.phone_number,
                 "total_bills": customer.total_bills,
                 "total_spent": float(customer.total_spent),
+                "ledger_balance": float(customer.ledger_balance),
                 "last_purchase_date": (
                     customer.last_purchase_date.isoformat()
                     if customer.last_purchase_date
@@ -380,6 +385,7 @@ class CustomerService:
                 "phone_number": customer.phone_number,
                 "total_bills": customer.total_bills,
                 "total_spent": float(customer.total_spent),
+                "ledger_balance": float(customer.ledger_balance),
             },
             "bills": [
                 {
@@ -430,6 +436,12 @@ class CustomerService:
             )
         
         customer_name = customer.name
+        ledger_repository = CustomerLedgerRepository(session)
+        if await ledger_repository.has_entries(tenant, customer_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This customer has ledger history and cannot be removed",
+            )
         await repository.delete(customer)
         await session.commit()
         

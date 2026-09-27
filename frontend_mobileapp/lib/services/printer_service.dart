@@ -175,6 +175,20 @@ class PrinterService {
                     pw.Text("Time: ${billData['time'] ?? '-'}",
                         style: const pw.TextStyle(fontSize: 12)),
                   ]),
+              if (billData['payment_method']?.toString().toLowerCase() == 'udhaar')
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 2),
+                  child: pw.Center(
+                    child: pw.Text(
+                      'PAYMENT: UDHAAR',
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.orange,
+                      ),
+                    ),
+                  ),
+                ),
               pw.Divider(thickness: 1),
 
               // --- 3. TABLE HEADERS (4 Columns) ---

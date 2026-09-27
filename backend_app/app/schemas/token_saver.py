@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.workflows import BillDraftResponse
+from app.schemas.ledger import LedgerDraftResponse
 
 
 class TokenSaverTicketResponse(BaseModel):
@@ -20,7 +21,8 @@ class TokenSaverTicketResponse(BaseModel):
 class TokenSaverProcessResponse(BaseModel):
     """The validated result of one final on-device speech transcript."""
 
-    type: Literal["BILL", "QUERY", "ERROR"]
+    type: Literal["BILL", "QUERY", "LEDGER", "ERROR"]
     message: str = Field(min_length=1, max_length=300)
     draft: BillDraftResponse | None = None
+    ledger_draft: LedgerDraftResponse | None = None
     unresolved_items: list[str] = Field(default_factory=list, max_length=20)

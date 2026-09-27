@@ -36,6 +36,7 @@ class CustomerResponse(BaseModel):
     phone_number: str | None
     total_bills: int
     total_spent: float
+    ledger_balance: float
     last_purchase_date: datetime | None
     created_at: datetime
 
@@ -47,6 +48,7 @@ class CustomerDetailResponse(BaseModel):
     phone_number: str | None
     total_bills: int
     total_spent: float
+    ledger_balance: float
     last_purchase_date: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -61,6 +63,7 @@ class CustomerListResponse(BaseModel):
     limit: int
     offset: int
     order_by: str
+    total_outstanding_ledger: float
 
 
 class BillSummary(BaseModel):

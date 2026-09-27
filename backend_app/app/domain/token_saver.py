@@ -24,12 +24,15 @@ from app.config.settings import Settings, get_settings
 from app.db.models import User
 from app.db.tenant import TenantContext
 from app.domain.analytics import analytics_service
+from app.domain.customer_ledger import customer_ledger_service
 from app.domain.long_bill import printable_catalog_name
 from app.domain.workflows import workflow_service
 from app.integrations.vertex_gemini import create_vertex_gemini_client
 from app.retrieval.customers import customer_search_service
 from app.retrieval.inventory import inventory_search_service
+from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.schemas.analytics import BillCreate
+from app.schemas.ledger import LedgerAdjustmentRequest
 from app.schemas.token_saver import TokenSaverProcessResponse, TokenSaverTicketResponse
 
 
@@ -147,8 +150,8 @@ Available inventory catalogue (with prices): {json.dumps(_compact_catalog(catalo
 
 Return a JSON object only with exactly these keys:
 {{
-  "type": "BILL" | "QUERY" | "ERROR",
-  "query_type": "SHOP_PROFILE" | "SALES_SUMMARY" | "INVENTORY_SEARCH" | "CUSTOMER_INFO" | "GENERAL",
+  "type": "BILL" | "QUERY" | "LEDGER_ADJUSTMENT" | "ERROR",
+  "query_type": "SHOP_PROFILE" | "SALES_SUMMARY" | "INVENTORY_SEARCH" | "CUSTOMER_INFO" | "CUSTOMER_LEDGER" | "GENERAL",
   "query_param": "optional string parameter (e.g. search keyword, customer name, or days like '1' for today, '7', '30')",
   "items": [
     {{
@@ -160,6 +163,10 @@ Return a JSON object only with exactly these keys:
     }}
   ],
   "customer_name": "optional Latin-script name (Hinglish)",
+  "payment_method": "cash" | "udhaar",
+  "ledger_action": "udhaar" | "payment" | null,
+  "ledger_amount": "positive number or null",
+  "ledger_note": "optional brief note",
   "message": "short conversational single sentence (4 to 5 words max in Hinglish)"
 }}
 
@@ -186,9 +193,15 @@ Rules:
    - If user asks about sales, revenue, dashboard, bills count ("aaj ki sale", "total revenue", "dashboard summary"): set "query_type": "SALES_SUMMARY", set "query_param": "1" (for today) or "7" or "30".
    - If user asks if an item is in stock or its price ("chawal hai kya", "tamatar ka rate kya hai"): set "query_type": "INVENTORY_SEARCH", set "query_param": item name.
    - If user asks about customer info or bill history ("Ramesh ka bill", "customer details"): set "query_type": "CUSTOMER_INFO", set "query_param": customer name.
+   - If user asks how much a customer owes, their udhaar, dues, payment, or ledger: set "query_type": "CUSTOMER_LEDGER", set "query_param" and "customer_name" to the customer name.
    - For general greetings or questions: set "query_type": "GENERAL".
 
-3. CONVERSATIONAL SINGLE SENTENCE FORMAT (STRICT):
+3. FOR LEDGER CHANGES:
+   - When the owner says to add udhaar/credit/due or says a customer paid and the ledger should reduce, set type "LEDGER_ADJUSTMENT".
+   - Set customer_name, ledger_action to "udhaar" (increase) or "payment" (reduce), and ledger_amount to the exact positive rupee amount.
+   - Never treat a customer question as a ledger change. The app will require a separate visible confirmation before any ledger adjustment is recorded.
+
+4. CONVERSATIONAL SINGLE SENTENCE FORMAT (STRICT):
    - The "message" field MUST be a SHORT CONVERSATIONAL SINGLE SENTENCE of 4 TO 5 WORDS ONLY (in Hinglish/Hindi).
    - NEVER output long structured reports, technical bullet points, or multi-sentence paragraphs.
    - Examples:
@@ -406,7 +419,92 @@ class TokenSaverService:
                     message = message or "Grahak jankari nahi mili."
                 return TokenSaverProcessResponse(type="QUERY", message=message)
 
+            elif query_type == "CUSTOMER_LEDGER":
+                customer_query = str(
+                    model_output.get("customer_name") or query_param
+                ).strip()
+                if not customer_query:
+                    return TokenSaverProcessResponse(
+                        type="QUERY",
+                        message="Grahak ka naam batayiye.",
+                    )
+                matches = await customer_search_service.search(
+                    session, tenant, customer_query, limit=2
+                )
+                if not matches:
+                    return TokenSaverProcessResponse(
+                        type="QUERY",
+                        message=f"Verified grahak {customer_query} nahi mila.",
+                    )
+                if len(matches) > 1:
+                    return TokenSaverProcessResponse(
+                        type="QUERY",
+                        message="Do grahak mile, naam saaf batayiye.",
+                    )
+                customer = matches[0].customer
+                return TokenSaverProcessResponse(
+                    type="QUERY",
+                    message=f"{customer.name} ka udhaar {int(customer.ledger_balance):,} rupaye hai.",
+                )
+
             return TokenSaverProcessResponse(type="QUERY", message=message or "Aapki kya sahayata karoon?")
+
+        if response_type == "LEDGER_ADJUSTMENT":
+            customer_query = str(model_output.get("customer_name") or "").strip()
+            action = str(model_output.get("ledger_action") or "").strip().casefold()
+            aliases = {
+                "add": "udhaar",
+                "increase": "udhaar",
+                "credit": "udhaar",
+                "paid": "payment",
+                "reduce": "payment",
+                "remove": "payment",
+            }
+            action = aliases.get(action, action)
+            amount = _positive_decimal(model_output.get("ledger_amount"))
+            if not customer_query or action not in {"udhaar", "payment"} or amount is None:
+                return TokenSaverProcessResponse(
+                    type="ERROR",
+                    message="Grahak aur sahi rakam batayiye.",
+                )
+            matches = await customer_search_service.search(
+                session, tenant, customer_query, limit=2
+            )
+            if not matches:
+                return TokenSaverProcessResponse(
+                    type="ERROR",
+                    message=f"Verified grahak {customer_query} nahi mila.",
+                )
+            if len(matches) > 1:
+                return TokenSaverProcessResponse(
+                    type="ERROR",
+                    message="Do grahak mile, naam saaf batayiye.",
+                )
+            customer = matches[0].customer
+            try:
+                ledger_draft = await customer_ledger_service.create_adjustment_draft(
+                    session,
+                    tenant,
+                    customer.id,
+                    LedgerAdjustmentRequest(
+                        entry_type=action,
+                        amount=amount.quantize(Decimal("0.01")),
+                        note=str(model_output.get("ledger_note") or "").strip() or None,
+                        source="token_saver",
+                    ),
+                )
+            except Exception as error:
+                detail = getattr(error, "detail", None)
+                return TokenSaverProcessResponse(
+                    type="ERROR",
+                    message=str(detail or "Ledger change prepare nahi hua."),
+                )
+            action_text = "udhaar" if action == "udhaar" else "payment"
+            return TokenSaverProcessResponse(
+                type="LEDGER",
+                message=f"{customer.name} ka {action_text} confirm kijiye.",
+                ledger_draft=ledger_draft,
+            )
 
         # Handle BILL responses
         if response_type != "BILL" or not isinstance(model_output.get("items"), list):
@@ -509,11 +607,26 @@ class TokenSaverService:
                 "items": proposed_items,
                 "total_amount": sum((item["total"] for item in proposed_items), Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
                 "customer_name": _safe_customer_name(model_output.get("customer_name")),
-                "payment_method": "cash",
+                "payment_method": model_output.get("payment_method") or "cash",
                 "bill_type": "printed",
                 "billing_source": "voice",
             }
         )
+        if payload.payment_method == "udhaar":
+            verified_customer = await VerifiedCustomerRepository(session).find_by_exact_name(
+                tenant, payload.customer_name or ""
+            )
+            if verified_customer is None:
+                return TokenSaverProcessResponse(
+                    type="ERROR",
+                    message="Udhaar ke liye verified grahak chuniye.",
+                )
+            payload = payload.model_copy(
+                update={
+                    "verified_customer_id": verified_customer.id,
+                    "customer_name": verified_customer.name,
+                }
+            )
         draft = await workflow_service.create_bill_draft(session, tenant, payload)
 
         bill_msg = message

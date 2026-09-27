@@ -14,6 +14,7 @@ from app.db.models import AuditEvent, Bill, IdempotencyKey, Item, SaleItem
 from app.db.tenant import TenantContext
 from app.domain.billing_source import billing_source_from_items
 from app.domain.customers import customer_service
+from app.domain.customer_ledger import customer_ledger_service
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.verified_customers import VerifiedCustomerRepository
 from app.schemas.analytics import BillCreate
@@ -56,8 +57,19 @@ class AnalyticsService:
             for item in payload.items
         ]
         
-        # Link to verified customer if provided
-        final_verified_customer_id = verified_customer_id
+        # Link to verified customer if provided.  The workflow-confirmation
+        # path predates the field on BillCreate, so reject conflicting values
+        # instead of silently choosing one.
+        if (
+            verified_customer_id is not None
+            and payload.verified_customer_id is not None
+            and verified_customer_id != payload.verified_customer_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The bill selected two different verified customers",
+            )
+        final_verified_customer_id = verified_customer_id or payload.verified_customer_id
 
         if final_verified_customer_id is not None:
             if await VerifiedCustomerRepository(session).get_by_id(
@@ -68,6 +80,12 @@ class AnalyticsService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Verified customer not found",
                 )
+
+        if payload.payment_method == "udhaar" and final_verified_customer_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="An udhaar bill must be linked to a verified customer",
+            )
 
         # A same-name record is not sufficient to identify a person.  Linking a
         # printed bill is always an explicit owner choice made in the post-print
@@ -82,6 +100,18 @@ class AnalyticsService:
         )
         session.add(bill)
         await session.flush()
+
+        if payload.payment_method == "udhaar" and final_verified_customer_id is not None:
+            # The bill and its ledger charge share one transaction. A failed
+            # save therefore never leaves a phantom udhaar entry behind.
+            await customer_ledger_service.record_bill_udhaar(
+                session,
+                tenant,
+                customer_id=final_verified_customer_id,
+                bill_id=bill.id,
+                amount=payload.total_amount,
+                occurred_at=now,
+            )
         for item in payload.items:
             session.add(SaleItem(
                 owner_id=tenant.owner_id, bill_id=bill.id, shop_category=tenant.shop_category,

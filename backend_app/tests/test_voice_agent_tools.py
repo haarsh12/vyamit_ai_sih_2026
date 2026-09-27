@@ -23,6 +23,8 @@ def test_retail_voice_agent_exposes_tenant_scoped_inventory_tools() -> None:
         "find_customer",
         "search_verified_customers",
         "get_customer_bill_history",
+        "get_customer_ledger",
+        "propose_customer_ledger_adjustment",
     } <= tool_ids
 
 

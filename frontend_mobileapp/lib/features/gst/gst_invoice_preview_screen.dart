@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/shop_details.dart';
 import '../../providers/bill_provider.dart';
 import '../../services/printer_service.dart';
+import '../../widgets/udhaar_bill_confirmation_dialog.dart';
 import 'models/gst_invoice_draft.dart';
 import 'providers/gst_provider.dart';
 import 'services/gst_service.dart';
@@ -44,6 +45,7 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
   Map<String, dynamic>? _finalizedInvoice;
   bool _isLoading = true;
   bool _isFinalizing = false;
+  bool _udhaarApproved = false;
   String? _error;
 
   @override
@@ -75,6 +77,7 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
         issueDate: _issueDate.toIso8601String(),
         dueDate: _dueDate.toIso8601String(),
         paymentMethod: _paymentMethod.toLowerCase(),  // Convert back to lowercase for API
+        verifiedCustomerId: widget.initialDraft.verifiedCustomerId,
         paymentStatus: _paymentStatus,  // Keep uppercase for API
         referenceNumber: _referenceNumber,
         bankDetails: _bankDetails,
@@ -517,6 +520,29 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
       widget.togglePrinter();
       return;
     }
+
+    if (_paymentMethod == 'UDHAAR' && !_udhaarApproved) {
+      if (widget.initialDraft.verifiedCustomerId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Select a verified customer before setting this invoice as udhaar.'),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
+      final totalPaise =
+          (_preview?['totals']?['grand_total_paise'] as num? ?? 0).toDouble();
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (_) => UdhaarBillConfirmationDialog(
+          customerName: _customer['name']?.toString() ?? 'this customer',
+          amount: totalPaise / 100,
+        ),
+      );
+      if (approved != true || !mounted) return;
+      setState(() => _udhaarApproved = true);
+    }
+
     setState(() => _isFinalizing = true);
     var printedOnDevice = false;
     try {
@@ -781,10 +807,15 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
                                           DropdownMenuItem(
                                               value: 'NET_BANKING',
                                               child: Text('NET BANKING')),
+                                          DropdownMenuItem(
+                                              value: 'UDHAAR',
+                                              child: Text('UDHAAR')),
                                         ],
                                         onChanged: _finalizedInvoiceId == null
-                                            ? (val) => setState(
-                                                () => _paymentMethod = val!)
+                                            ? (val) => setState(() {
+                                                _paymentMethod = val!;
+                                                _udhaarApproved = false;
+                                              })
                                             : null,
                                       ),
                                     ),

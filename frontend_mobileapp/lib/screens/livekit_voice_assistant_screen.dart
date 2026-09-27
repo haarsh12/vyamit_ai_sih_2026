@@ -16,6 +16,10 @@ import '../features/voice/services/long_bill_service.dart';
 import '../features/voice/services/long_bill_speech_service.dart';
 import '../features/voice/services/token_saver_voice_service.dart';
 import 'bill_share_modal.dart';
+import '../services/api_client.dart';
+import '../services/customer_service.dart';
+import '../widgets/ledger_confirmation_dialog.dart';
+import '../widgets/udhaar_bill_confirmation_dialog.dart';
 
 class LiveKitVoiceAssistantScreen extends StatefulWidget {
   final ShopDetails shopDetails;
@@ -72,11 +76,16 @@ class _LiveKitVoiceAssistantScreenState
   bool _isEditMode = false;
   bool _isManualLiveBillOpen = false;
   Map<String, dynamic>? _pendingCustomerVerificationSuggestion;
+  String _pendingPaymentMethod = 'cash';
+  int? _pendingVerifiedCustomerId;
   final Set<String> _handledBillDraftIds = <String>{};
+  final Set<String> _handledLedgerDraftIds = <String>{};
+  late final CustomerService _customerService;
 
   @override
   void initState() {
     super.initState();
+    _customerService = CustomerService(ApiClient());
     _events = _voice.events.listen(_handleVoiceEvent);
     _longBillSpeech = LongBillSpeechService(
       onTranscriptChanged: (transcript) {
@@ -114,6 +123,10 @@ class _LiveKitVoiceAssistantScreenState
         if (response['type'] == 'BILL' && draft is Map) {
           _applyBillDraftPayload(Map<String, dynamic>.from(draft));
           setState(() => _isManualLiveBillOpen = true);
+        } else if (response['type'] == 'LEDGER' && response['ledger_draft'] is Map) {
+          unawaited(_presentLedgerConfirmation(
+            Map<String, dynamic>.from(response['ledger_draft'] as Map),
+          ));
         }
       },
     );
@@ -503,6 +516,13 @@ class _LiveKitVoiceAssistantScreenState
         _applyBillDraftPayload(event.payload);
         break;
 
+      case 'ledger_adjustment_draft':
+        final draft = event.payload['draft'];
+        if (draft is Map) {
+          unawaited(_presentLedgerConfirmation(Map<String, dynamic>.from(draft)));
+        }
+        break;
+
       case 'disconnected':
         if (_isSessionActive) {
           _stopContinuousSession();
@@ -562,6 +582,11 @@ class _LiveKitVoiceAssistantScreenState
     _pendingCustomerVerificationSuggestion = rawSuggestion is Map
         ? Map<String, dynamic>.from(rawSuggestion)
         : null;
+    _pendingPaymentMethod = state['payment_method']?.toString().trim().toLowerCase() ?? 'cash';
+    final rawCustomerId = state['verified_customer_id'];
+    _pendingVerifiedCustomerId = rawCustomerId is num
+        ? rawCustomerId.toInt()
+        : int.tryParse(rawCustomerId?.toString() ?? '');
     final customerName = state['customer_name']?.toString().trim();
     final billProvider = Provider.of<BillProvider>(context, listen: false);
     if (replaceExistingBill) {
@@ -674,6 +699,8 @@ class _LiveKitVoiceAssistantScreenState
     setState(() {
       if (_isEditMode) _isEditMode = false;
       _isManualLiveBillOpen = false;
+      _pendingPaymentMethod = 'cash';
+      _pendingVerifiedCustomerId = null;
     });
   }
 
@@ -744,6 +771,8 @@ class _LiveKitVoiceAssistantScreenState
       setState(() {
         _isManualLiveBillOpen = false;
         if (_isEditMode) _isEditMode = false;
+        _pendingPaymentMethod = 'cash';
+        _pendingVerifiedCustomerId = null;
       });
     }
   }
@@ -753,6 +782,19 @@ class _LiveKitVoiceAssistantScreenState
     final gstProvider = Provider.of<GstProvider>(context, listen: false);
 
     if (!billProvider.hasBillItems) return;
+
+    if (_pendingPaymentMethod == 'udhaar') {
+      final customerName = billProvider.customerName.trim();
+      final accepted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => UdhaarBillConfirmationDialog(
+          customerName: customerName.isEmpty ? 'this verified customer' : customerName,
+          amount: billProvider.billTotal,
+        ),
+      );
+      if (accepted != true || !mounted) return;
+    }
 
     if (gstProvider.isCurrentBillGstEnabled) {
       final printed = await Navigator.of(context).push<bool>(
@@ -765,6 +807,8 @@ class _LiveKitVoiceAssistantScreenState
               customerName: billProvider.customerName,
               customerGstin: gstProvider.customerGstin,
               customerStateCode: gstProvider.customerStateCode,
+              paymentMethod: _pendingPaymentMethod,
+              verifiedCustomerId: _pendingVerifiedCustomerId,
             ),
             shopDetails: widget.shopDetails,
             isPrinterConnected: widget.isPrinterConnected,
@@ -807,6 +851,9 @@ class _LiveKitVoiceAssistantScreenState
       'time': "${DateTime.now().hour}:${DateTime.now().minute}",
       'total': billProvider.billTotal,
       'customerName': billProvider.customerName,
+      'payment_method': _pendingPaymentMethod,
+      if (_pendingVerifiedCustomerId != null)
+        'verified_customer_id': _pendingVerifiedCustomerId,
       'shopName': widget.shopDetails.shopName,
       'shopAddress': widget.shopDetails.address,
       'shopPhone': widget.shopDetails.phone1,
@@ -823,7 +870,46 @@ class _LiveKitVoiceAssistantScreenState
       _agentResponse = "Bill Printed!";
       _isManualLiveBillOpen = false;
       _pendingCustomerVerificationSuggestion = null;
+      _pendingPaymentMethod = 'cash';
+      _pendingVerifiedCustomerId = null;
     });
+  }
+
+  Future<void> _presentLedgerConfirmation(Map<String, dynamic> draft) async {
+    final draftId = draft['id']?.toString().trim() ?? '';
+    if (draftId.isEmpty || _handledLedgerDraftIds.contains(draftId) || !mounted) return;
+    _handledLedgerDraftIds.add(draftId);
+    final customerId = (draft['customer_id'] as num?)?.toInt() ??
+        int.tryParse(draft['customer_id']?.toString() ?? '');
+    final version = (draft['version'] as num?)?.toInt() ?? 0;
+    if (customerId == null || version < 1) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => LedgerConfirmationDialog(
+        draft: draft,
+        onCancel: () => Navigator.pop(dialogContext),
+        onConfirm: () async {
+          try {
+            final response = await _customerService.confirmLedgerDraft(customerId, draftId, version);
+            if (!dialogContext.mounted) return;
+            Navigator.pop(dialogContext);
+            if (mounted) {
+              setState(() => _agentResponse = response['message']?.toString() ?? 'Ledger updated');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(response['message']?.toString() ?? 'Ledger updated'), backgroundColor: AppColors.primaryGreen),
+              );
+            }
+          } catch (error) {
+            if (dialogContext.mounted) {
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                SnackBar(content: Text('Ledger was not updated: $error'), backgroundColor: Colors.red),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   void _openShareModal(BillProvider billProvider) {
@@ -839,6 +925,8 @@ class _LiveKitVoiceAssistantScreenState
           totalAmount: totalAmount,
           shopDetails: widget.shopDetails,
           customerName: billProvider.customerName,
+          paymentMethod: _pendingPaymentMethod,
+          verifiedCustomerId: _pendingVerifiedCustomerId,
         ),
         fullscreenDialog: true,
       ),

@@ -320,7 +320,10 @@ class _HomeScreenState extends State<HomeScreen> {
       totalAmount: double.parse(totalAmount.toStringAsFixed(2)),
       items: items,
       customerName: billData['customerName'] as String?,
-      paymentMethod: 'cash',
+      paymentMethod: billData['payment_method']?.toString() ?? 'cash',
+      verifiedCustomerId: billData['verified_customer_id'] is num
+          ? (billData['verified_customer_id'] as num).toInt()
+          : int.tryParse(billData['verified_customer_id']?.toString() ?? ''),
       billingSource: billData['billing_source'] as String? ?? 'voice',
     );
     final billId = result['bill_id'];

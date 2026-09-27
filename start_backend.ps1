@@ -17,6 +17,15 @@ if (-not (Test-Path ".env")) {
     exit 1
 }
 
+# Keep the database schema aligned with the application before accepting traffic.
+# This prevents a new API build from querying columns that are not yet present.
+Write-Host "🗃️  Applying database migrations..." -ForegroundColor Cyan
+python -m alembic upgrade head
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Database migration failed. Backend was not started." -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
 # Start FastAPI server
 Write-Host "🌐 Starting FastAPI server on http://localhost:8000..." -ForegroundColor Green
 Write-Host "   Press Ctrl+C to stop" -ForegroundColor Gray

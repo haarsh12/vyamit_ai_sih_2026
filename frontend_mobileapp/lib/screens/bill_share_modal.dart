@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../models/shop_details.dart';
 import '../models/customer.dart';
+import '../widgets/udhaar_bill_confirmation_dialog.dart';
 import '../widgets/customer_verification_dialog.dart';
 import '../services/customer_service.dart';
 import '../services/api_client.dart';
@@ -14,6 +15,8 @@ class BillShareModal extends StatefulWidget {
   final double totalAmount;
   final ShopDetails shopDetails;
   final String? customerName;
+  final String paymentMethod;
+  final int? verifiedCustomerId;
   final String billingSource;
 
   const BillShareModal({
@@ -22,6 +25,8 @@ class BillShareModal extends StatefulWidget {
     required this.totalAmount,
     required this.shopDetails,
     this.customerName,
+    this.paymentMethod = 'cash',
+    this.verifiedCustomerId,
     this.billingSource = 'voice',
   });
 
@@ -186,7 +191,8 @@ class _BillShareModalState extends State<BillShareModal> {
       items: items,
       customerPhone: _mobileController.text.trim(),
       customerName: _finalCustomerName,
-      paymentMethod: 'cash',
+      paymentMethod: widget.paymentMethod,
+      verifiedCustomerId: widget.verifiedCustomerId,
       billType: 'virtual',
       billingSource: widget.billingSource,
     );
@@ -243,6 +249,17 @@ class _BillShareModalState extends State<BillShareModal> {
     String channel,
   ) async {
     if (_isLoading) return;
+    if (widget.paymentMethod == 'udhaar') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => UdhaarBillConfirmationDialog(
+          customerName: _finalCustomerName,
+          amount: widget.totalAmount,
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     setState(() => _isLoading = true);
 
     try {
