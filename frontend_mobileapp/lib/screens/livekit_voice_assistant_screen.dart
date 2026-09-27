@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -40,6 +41,7 @@ class _LiveKitVoiceAssistantScreenState
   final LiveKitVoiceService _voice = LiveKitVoiceService();
   final PageController _voiceModeController = PageController();
   final LongBillService _longBillService = LongBillService();
+  final FlutterTts _longBillTts = FlutterTts();
   StreamSubscription<VoiceUiEvent>? _events;
   late final LongBillSpeechService _longBillSpeech;
   late final TokenSaverVoiceService _tokenSaverVoice;
@@ -127,6 +129,7 @@ class _LiveKitVoiceAssistantScreenState
     _events?.cancel();
     _audioLevelTimer?.cancel();
     _voiceModeController.dispose();
+    unawaited(_longBillTts.stop());
     unawaited(_longBillSpeech.dispose());
     unawaited(_tokenSaverVoice.dispose());
     _voice.dispose();
@@ -228,6 +231,7 @@ class _LiveKitVoiceAssistantScreenState
       await _tokenSaverVoice.stop();
       return;
     }
+    await _stopAllVoiceModes();
     setState(() {
       _tokenSaverTranscript = '';
       _tokenSaverAudioLevel = 0;
@@ -259,6 +263,7 @@ class _LiveKitVoiceAssistantScreenState
       return;
     }
 
+    await _stopAllVoiceModes();
     setState(() {
       _longBillTranscript = '';
       _longBillAudioLevel = 0;
@@ -267,6 +272,20 @@ class _LiveKitVoiceAssistantScreenState
     final result = await _longBillSpeech.start();
     if (!mounted) return;
     setState(() => _longBillStatus = result.message);
+  }
+
+  Future<void> _speakLongBillResponse(String text) async {
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    try {
+      await _longBillTts.stop();
+      await _longBillTts.setSpeechRate(0.48);
+      await _longBillTts.setPitch(1.0);
+      try {
+        await _longBillTts.setLanguage('hi-IN');
+      } catch (_) {}
+      await _longBillTts.speak(clean);
+    } catch (_) {}
   }
 
   Future<void> _submitLongBillTranscript(String transcript) async {
@@ -291,6 +310,7 @@ class _LiveKitVoiceAssistantScreenState
       } else {
         setState(() => _longBillStatus = message);
       }
+      unawaited(_speakLongBillResponse(message));
     } catch (_) {
       if (!mounted) return;
       setState(() {

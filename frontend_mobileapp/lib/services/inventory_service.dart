@@ -1,4 +1,3 @@
-import '../core/config.dart';
 import 'api_client.dart';
 import '../models/item.dart';
 

@@ -13,7 +13,7 @@ class ApiConfig {
   // static const String _productionUrl = 'https://manthan4yuva-hackathon.onrender.com';
   
   // Development URL (Local backend - ACTIVE)
-  static const String _developmentUrl = 'http://10.40.209.207:8000';
+  static const String _developmentUrl = 'http://10.20.34.207:8000';
 
   static const String _configuredUrl = String.fromEnvironment(
     'API_BASE_URL',

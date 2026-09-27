@@ -85,10 +85,22 @@ async def token_saver_websocket(websocket: WebSocket) -> None:
             if session_factory is None:
                 await send_current({"type": "error", "message": "Token Saver is temporarily unavailable."})
                 return
-            async with session_factory() as session:
-                tenant = await get_tenant_context(session, user_id)
-                result = await token_saver_service.process(session, tenant, transcript)
-            await send_current({"type": "complete", "response": result.model_dump(mode="json")})
+            result = None
+            last_exc = None
+            for attempt in range(3):
+                try:
+                    async with session_factory() as session:
+                        tenant = await get_tenant_context(session, user_id)
+                        result = await token_saver_service.process(session, tenant, transcript)
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < 2:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                    else:
+                        raise exc
+            if result is not None:
+                await send_current({"type": "complete", "response": result.model_dump(mode="json")})
         except asyncio.CancelledError:
             raise
         except Exception:

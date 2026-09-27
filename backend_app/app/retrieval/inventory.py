@@ -148,21 +148,21 @@ class InventorySearchService:
         if keyword_matches:
             return keyword_matches[:safe_limit]
 
-        # 4. Safe Semantic pgvector Fallback with Short Timeout
+        # 4. Safe Semantic pgvector Fallback with Short Timeout and Savepoint Protection
         if self.embeddings is None:
             self.embeddings = VertexEmbeddingService()
         try:
-            vector = await asyncio.wait_for(self.embeddings.embed_query(clean_query), timeout=1.5)
-            statement = select(Item, Item.embedding.cosine_distance(vector).label("distance")).where(
-                Item.owner_id == tenant.owner_id,
-                Item.shop_category == tenant.shop_category,
-                Item.embedding.is_not(None),
-            ).order_by("distance").limit(safe_limit)
-            rows = (await session.execute(statement)).all()
-            return [InventoryMatch(item, max(0.0, 1.0 - float(distance)), "semantic") for item, distance in rows if distance is not None]
+            async with session.begin_nested():
+                vector = await asyncio.wait_for(self.embeddings.embed_query(clean_query), timeout=1.5)
+                statement = select(Item, Item.embedding.cosine_distance(vector).label("distance")).where(
+                    Item.owner_id == tenant.owner_id,
+                    Item.shop_category == tenant.shop_category,
+                    Item.embedding.is_not(None),
+                ).order_by("distance").limit(safe_limit)
+                rows = (await session.execute(statement)).all()
+                return [InventoryMatch(item, max(0.0, 1.0 - float(distance)), "semantic") for item, distance in rows if distance is not None]
         except Exception:
             return []
 
 
 inventory_search_service = InventorySearchService()
-

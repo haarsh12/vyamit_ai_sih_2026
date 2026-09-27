@@ -57,6 +57,7 @@ class TokenSaverVoiceService {
   Timer? _restartTimer;
   Timer? _reconnectTimer;
 
+  TokenSaverSessionState _currentState = TokenSaverSessionState.idle;
   bool _isActive = false;
   bool _isSocketConnected = false;
   bool _speechInitialised = false;
@@ -343,17 +344,33 @@ class TokenSaverVoiceService {
       return;
     }
     _setState(TokenSaverSessionState.speaking, response);
+    final completer = Completer<void>();
+    _tts.setCompletionHandler(() {
+      if (!completer.isCompleted) completer.complete();
+    });
+    _tts.setErrorHandler((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
+    _tts.setCancelHandler(() {
+      if (!completer.isCompleted) completer.complete();
+    });
+
     try {
       await _tts.speak(response);
+      final waitMs = (response.length * 120).clamp(1500, 8000);
+      await completer.future.timeout(Duration(milliseconds: waitMs), onTimeout: () => null);
     } catch (_) {
       // Local playback is optional; the visible response is still delivered.
     } finally {
-      _scheduleRecognizerRestart();
+      if (_isActive && _activeRequestId == null) {
+        _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+        _scheduleRecognizerRestart();
+      }
     }
   }
 
   void _handleSpeechStatus(String status) {
-    if (!_isActive || _activeRequestId != null || _usesNativeAec) return;
+    if (!_isActive || _activeRequestId != null || _usesNativeAec || _currentState == TokenSaverSessionState.speaking || _currentState == TokenSaverSessionState.processing) return;
     if (status == 'done' || status == 'notListening' || status == 'stopped') {
       _scheduleRecognizerRestart();
     }
@@ -403,7 +420,7 @@ class TokenSaverVoiceService {
   }
 
   void _scheduleRecognizerRestart() {
-    if (!_isActive || !_isSocketConnected || _activeRequestId != null) return;
+    if (!_isActive || !_isSocketConnected || _activeRequestId != null || _currentState == TokenSaverSessionState.speaking) return;
     _restartTimer?.cancel();
     _restartTimer = Timer(const Duration(milliseconds: 450), () {
       unawaited(_startDeviceRecognition());
@@ -434,6 +451,7 @@ class TokenSaverVoiceService {
   String _normalise(String value) => value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
 
   void _setState(TokenSaverSessionState state, String message) {
+    _currentState = state;
     if (_isActive || state == TokenSaverSessionState.error || state == TokenSaverSessionState.idle) {
       onStateChanged(state, message);
     }

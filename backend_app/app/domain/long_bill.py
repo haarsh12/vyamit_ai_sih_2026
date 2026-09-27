@@ -178,66 +178,70 @@ class LongBillService:
     async def create_draft(
         self, session: AsyncSession, tenant: TenantContext, transcript: str
     ) -> LongBillTranscriptResponse:
-        # The complete catalogue read is tenant filtered inside the retrieval
-        # service.  We never use a category, price, or item identifier supplied
-        # by the phone.
+        from app.domain.token_saver import token_saver_service
+
+        # First, process transcript via shared LLM billing service
+        result = await token_saver_service.process(session, tenant, transcript)
+
+        if result.type == "BILL" and result.draft is not None:
+            return LongBillTranscriptResponse(
+                status="draft",
+                message=result.message or "Long Bill draft is ready to review.",
+                draft=result.draft,
+                resolved_item_count=len(result.draft.items),
+                unresolved_segments=result.unresolved_items or [],
+            )
+
+        # Fallback to deterministic regex mentions if LLM did not return a draft bill
         catalog = await inventory_search_service.list_catalog(session, tenant)
-        if not catalog:
-            return LongBillTranscriptResponse(
-                status="needs_review",
-                message="Add inventory items before creating a Long Bill.",
-                resolved_item_count=0,
-            )
+        if catalog:
+            mentions = _find_catalog_mentions(transcript, catalog)
+            proposed_items: list[dict[str, object]] = []
+            unresolved_segments: list[str] = list(result.unresolved_items or [])
+            for index, mention in enumerate(mentions):
+                bill_name = printable_catalog_name(mention.item)
+                if bill_name is None:
+                    unresolved_segments.append(mention.item.names[0][:120])
+                    continue
+                next_start = mentions[index + 1].start if index + 1 < len(mentions) else len(transcript)
+                quantity = _quantity_for_mention(transcript, mention, next_start)
+                price = Decimal(mention.item.price).quantize(Decimal("0.01"))
+                total = (quantity * price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                proposed_items.append(
+                    {
+                        "name": bill_name,
+                        "quantity": quantity,
+                        "unit": _normalise_unit(mention.item.unit),
+                        "price": price,
+                        "total": total,
+                    }
+                )
 
-        mentions = _find_catalog_mentions(transcript, catalog)
-        proposed_items: list[dict[str, object]] = []
-        unresolved_segments: list[str] = []
-        for index, mention in enumerate(mentions):
-            bill_name = printable_catalog_name(mention.item)
-            if bill_name is None:
-                # A non-Latin item would not print correctly.  It is kept out
-                # of the draft and the owner can correct its catalogue alias.
-                unresolved_segments.append(mention.item.names[0][:120])
-                continue
-            next_start = mentions[index + 1].start if index + 1 < len(mentions) else len(transcript)
-            quantity = _quantity_for_mention(transcript, mention, next_start)
-            price = Decimal(mention.item.price).quantize(Decimal("0.01"))
-            total = (quantity * price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            proposed_items.append(
-                {
-                    "name": bill_name,
-                    "quantity": quantity,
-                    "unit": _normalise_unit(mention.item.unit),
-                    "price": price,
-                    "total": total,
-                }
-            )
+            if proposed_items:
+                total_amount = sum((item["total"] for item in proposed_items), Decimal("0.00"))
+                payload = BillCreate.model_validate(
+                    {
+                        "items": proposed_items,
+                        "total_amount": total_amount.quantize(Decimal("0.01")),
+                        "payment_method": "cash",
+                        "bill_type": "printed",
+                        "billing_source": "voice",
+                    }
+                )
+                draft = await workflow_service.create_bill_draft(session, tenant, payload)
+                return LongBillTranscriptResponse(
+                    status="draft",
+                    message="Long Bill draft is ready to review.",
+                    draft=draft,
+                    resolved_item_count=len(proposed_items),
+                    unresolved_segments=unresolved_segments[:_MAX_SEGMENTS_RETURNED],
+                )
 
-        if not proposed_items:
-            return LongBillTranscriptResponse(
-                status="needs_review",
-                message="No catalogue items were recognized. Review the transcript or add the items manually.",
-                resolved_item_count=0,
-                unresolved_segments=unresolved_segments[:_MAX_SEGMENTS_RETURNED],
-            )
-
-        total_amount = sum((item["total"] for item in proposed_items), Decimal("0.00"))
-        payload = BillCreate.model_validate(
-            {
-                "items": proposed_items,
-                "total_amount": total_amount.quantize(Decimal("0.01")),
-                "payment_method": "cash",
-                "bill_type": "printed",
-                "billing_source": "voice",
-            }
-        )
-        draft = await workflow_service.create_bill_draft(session, tenant, payload)
         return LongBillTranscriptResponse(
-            status="draft",
-            message="Long Bill draft is ready to review.",
-            draft=draft,
-            resolved_item_count=len(proposed_items),
-            unresolved_segments=unresolved_segments[:_MAX_SEGMENTS_RETURNED],
+            status="needs_review",
+            message=result.message or "No items were recognized. Review the transcript or speak item name, price, and quantity.",
+            resolved_item_count=0,
+            unresolved_segments=(result.unresolved_items or [])[:_MAX_SEGMENTS_RETURNED],
         )
 
 
