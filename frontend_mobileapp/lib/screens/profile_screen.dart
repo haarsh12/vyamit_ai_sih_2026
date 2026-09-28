@@ -19,7 +19,10 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   // Controllers for Shop Details
   late TextEditingController _shopNameCtrl;
   late TextEditingController _ownerNameCtrl;
@@ -261,6 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final details = Provider.of<AuthProvider>(context).shopDetails ??
         ShopDetails(
             shopName: "My Shop",
@@ -301,7 +305,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(bottom: Radius.circular(26)),
-                  child: Image.asset(getShopCategoryImage(_selectedShopCategory),
+                  child: Image.asset(
+                      getShopCategoryImage(_selectedShopCategory),
                       key: ValueKey(_selectedShopCategory),
                       fit: BoxFit.cover,
                       errorBuilder: (c, e, s) => const Center(

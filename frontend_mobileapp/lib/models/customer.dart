@@ -27,7 +27,7 @@ class VerifiedCustomer {
       totalBills: json['total_bills'] ?? 0,
       totalSpent: (json['total_spent'] ?? 0).toDouble(),
       ledgerBalance: (json['ledger_balance'] ?? 0).toDouble(),
-      lastPurchaseDate: json['last_purchase_date'] != null 
+      lastPurchaseDate: json['last_purchase_date'] != null
           ? DateTime.parse(json['last_purchase_date'])
           : null,
       createdAt: DateTime.parse(json['created_at']),
@@ -51,7 +51,8 @@ class VerifiedCustomerList {
     return VerifiedCustomerList(
       customers: rawCustomers
           .whereType<Map>()
-          .map((value) => VerifiedCustomer.fromJson(Map<String, dynamic>.from(value)))
+          .map((value) =>
+              VerifiedCustomer.fromJson(Map<String, dynamic>.from(value)))
           .toList(),
       total: (json['total'] as num?)?.toInt() ?? 0,
       totalOutstandingLedger:
@@ -118,7 +119,8 @@ class CustomerLedgerStatement {
       currentBalance: (json['current_balance'] as num?)?.toDouble() ?? 0,
       entries: rawEntries
           .whereType<Map>()
-          .map((value) => CustomerLedgerEntry.fromJson(Map<String, dynamic>.from(value)))
+          .map((value) =>
+              CustomerLedgerEntry.fromJson(Map<String, dynamic>.from(value)))
           .toList(),
     );
   }

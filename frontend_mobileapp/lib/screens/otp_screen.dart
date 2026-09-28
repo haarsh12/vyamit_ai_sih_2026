@@ -246,9 +246,7 @@ class _OtpScreenState extends State<OtpScreen>
           border: Border.all(
             color: isFocused
                 ? AppColors.primaryGreen
-                : (isFilled
-                    ? AppColors.primaryGreen
-                    : const Color(0xFFE2E8F0)),
+                : (isFilled ? AppColors.primaryGreen : const Color(0xFFE2E8F0)),
             width: isFocused ? 2.0 : 1.5,
           ),
           boxShadow: isFocused

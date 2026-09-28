@@ -12,7 +12,10 @@ class DoctorPatientListScreen extends StatefulWidget {
       _DoctorPatientListScreenState();
 }
 
-class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
+class _DoctorPatientListScreenState extends State<DoctorPatientListScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _service = DoctorPrescriptionService();
   final _search = TextEditingController();
   List<Map<String, dynamic>> _patients = [];
@@ -88,6 +91,7 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final groups = <String, List<Map<String, dynamic>>>{};
     for (final patient in _patients) {
       final name = patient['name']?.toString().trim() ?? '';
@@ -116,7 +120,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
               decoration: InputDecoration(
                 hintText: 'Search patient by name or phone...',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primaryGreen),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.primaryGreen),
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
@@ -128,7 +133,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                       ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(color: Color(0xFFE0E0E0))),
@@ -137,14 +143,17 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                     borderSide: const BorderSide(color: Color(0xFFE0E0E0))),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5)),
+                    borderSide: const BorderSide(
+                        color: AppColors.primaryGreen, width: 1.5)),
               ),
             ),
             const SizedBox(height: 16),
             if (_loading)
               const Padding(
                   padding: EdgeInsets.all(36),
-                  child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)))
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.primaryGreen)))
             else if (_error != null)
               _emptyState(Icons.cloud_off_rounded, _error!, action: _load)
             else if (_patients.isEmpty)
@@ -157,7 +166,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.primaryGreen,
                               borderRadius: BorderRadius.circular(8),
@@ -171,7 +181,9 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Container(height: 1, color: Colors.grey.shade200)),
+                          Expanded(
+                              child: Container(
+                                  height: 1, color: Colors.grey.shade200)),
                         ],
                       ),
                     ),
@@ -217,7 +229,10 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
         ),
         title: Text(
           name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textBlack),
+          style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppColors.textBlack),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -225,12 +240,9 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
             spacing: 6,
             runSpacing: 4,
             children: [
-              if (age != null)
-                _chip(Icons.cake_rounded, '$age yrs'),
-              if (gender.isNotEmpty)
-                _chip(Icons.person_rounded, gender),
-              if (phone.isNotEmpty)
-                _chip(Icons.phone_rounded, phone),
+              if (age != null) _chip(Icons.cake_rounded, '$age yrs'),
+              if (gender.isNotEmpty) _chip(Icons.person_rounded, gender),
+              if (phone.isNotEmpty) _chip(Icons.phone_rounded, phone),
             ],
           ),
         ),
@@ -247,12 +259,15 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.history_edu_rounded, size: 18),
-                  label: const Text('View Prescriptions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: const Text('View Prescriptions',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -261,7 +276,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                 tooltip: 'Delete Patient',
                 onPressed: () => _deletePatient(patient),
                 color: Colors.red.shade600,
-                style: IconButton.styleFrom(side: BorderSide(color: Colors.red.shade200)),
+                style: IconButton.styleFrom(
+                    side: BorderSide(color: Colors.red.shade200)),
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
               ),
             ],
@@ -285,7 +301,10 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF33691E), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF33691E),
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -309,7 +328,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54, height: 1.4, fontSize: 14),
+              style: const TextStyle(
+                  color: Colors.black54, height: 1.4, fontSize: 14),
             ),
             if (action != null) ...[
               const SizedBox(height: 12),
@@ -317,7 +337,8 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen> {
                 onPressed: action,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Try again'),
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryGreen),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryGreen),
               ),
             ],
           ],
@@ -371,13 +392,15 @@ class _DoctorPatientPrescriptionsScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(name,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textBlack,
         elevation: 0.5,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primaryGreen))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -385,11 +408,13 @@ class _DoctorPatientPrescriptionsScreenState
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.history_rounded, color: AppColors.primaryGreen, size: 20),
+                    const Icon(Icons.history_rounded,
+                        color: AppColors.primaryGreen, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Prescription Records (${records.length})',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -457,7 +482,9 @@ class _DoctorPatientPrescriptionsScreenState
                 Text(
                   name,
                   style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -466,7 +493,8 @@ class _DoctorPatientPrescriptionsScreenState
                     if (gender.isNotEmpty) gender,
                     if (phone.isNotEmpty) 'Ph: $phone',
                   ].join('  •  '),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
                 ),
               ],
             ),
@@ -509,12 +537,15 @@ class _DoctorPatientPrescriptionsScreenState
             children: [
               Row(
                 children: [
-                  const Icon(Icons.event_available_rounded, size: 16, color: AppColors.primaryGreen),
+                  const Icon(Icons.event_available_rounded,
+                      size: 16, color: AppColors.primaryGreen),
                   const SizedBox(width: 6),
                   Text(
                     dateFormatted,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryGreen),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppColors.primaryGreen),
                   ),
                 ],
               ),
@@ -526,7 +557,10 @@ class _DoctorPatientPrescriptionsScreenState
                 ),
                 child: Text(
                   '${medications.length} Meds',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreen),
                 ),
               ),
             ],
@@ -542,12 +576,16 @@ class _DoctorPatientPrescriptionsScreenState
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.medical_information_rounded, size: 15, color: Colors.amber),
+                  const Icon(Icons.medical_information_rounded,
+                      size: 15, color: Colors.amber),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Diagnosis: $diagnosis',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade900),
                     ),
                   ),
                 ],
@@ -561,7 +599,8 @@ class _DoctorPatientPrescriptionsScreenState
             final freq = medicine['frequency']?.toString().trim() ?? '';
             final duration = medicine['duration']?.toString().trim() ?? '';
             final timing = medicine['timing']?.toString().trim() ?? '';
-            final instructions = medicine['instructions']?.toString().trim() ?? '';
+            final instructions =
+                medicine['instructions']?.toString().trim() ?? '';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -570,16 +609,21 @@ class _DoctorPatientPrescriptionsScreenState
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.medication_liquid_rounded, size: 16, color: AppColors.primaryGreen),
+                      const Icon(Icons.medication_liquid_rounded,
+                          size: 16, color: AppColors.primaryGreen),
                       const SizedBox(width: 6),
                       Text(
                         name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       if (dose.isNotEmpty)
                         Text(
                           ' ($dose)',
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black54, fontSize: 13),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                              fontSize: 13),
                         ),
                     ],
                   ),
@@ -589,8 +633,10 @@ class _DoctorPatientPrescriptionsScreenState
                     runSpacing: 4,
                     children: [
                       if (freq.isNotEmpty) _medPill('Freq: $freq'),
-                      if (duration.isNotEmpty) _medPill('Duration: $duration', color: Colors.blue),
-                      if (timing.isNotEmpty) _medPill('When: $timing', color: Colors.teal),
+                      if (duration.isNotEmpty)
+                        _medPill('Duration: $duration', color: Colors.blue),
+                      if (timing.isNotEmpty)
+                        _medPill('When: $timing', color: Colors.teal),
                     ],
                   ),
                   if (instructions.isNotEmpty)
@@ -598,7 +644,10 @@ class _DoctorPatientPrescriptionsScreenState
                       padding: const EdgeInsets.only(top: 4, left: 4),
                       child: Text(
                         'Instructions: $instructions',
-                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade700),
                       ),
                     ),
                 ],
@@ -620,9 +669,9 @@ class _DoctorPatientPrescriptionsScreenState
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color.shade800),
+        style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.bold, color: color.shade800),
       ),
     );
   }
 }
-

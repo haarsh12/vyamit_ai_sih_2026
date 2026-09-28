@@ -18,7 +18,11 @@ class InventoryScreen extends StatefulWidget {
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+class _InventoryScreenState extends State<InventoryScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
 
   // Delete mode state
@@ -799,6 +803,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Consumer<InventoryProvider>(
       builder: (context, provider, child) {
         final filteredItems = provider.getFilteredItems(_searchController.text);
@@ -890,6 +895,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   height: 50,
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
+                    physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics()),
                     scrollDirection: Axis.horizontal,
                     itemCount:
                         displayCategories.length + 1, // +1 for Add button
@@ -943,67 +950,76 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   style: const TextStyle(color: Colors.grey)))
                           : ListView.builder(
                               padding: const EdgeInsets.all(16),
+                              physics: const BouncingScrollPhysics(
+                                  parent: AlwaysScrollableScrollPhysics()),
                               itemCount: filteredItems.length,
                               itemBuilder: (context, index) {
                                 final item = filteredItems[index];
                                 final isSelected =
                                     _selectedItemIds.contains(item.id);
 
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  color: isSelected
-                                      ? AppColors.primaryGreen.withOpacity(0.1)
-                                      : null,
-                                  child: ListTile(
-                                    onTap: _isDeleteMode
-                                        ? () => _toggleItemSelection(item.id)
-                                        : () => _showItemDialog(item: item),
-                                    onLongPress: () =>
-                                        _showItemDialog(item: item),
-                                    leading: _isDeleteMode
-                                        ? Checkbox(
-                                            value: isSelected,
-                                            onChanged: (val) =>
-                                                _toggleItemSelection(item.id),
-                                            activeColor: AppColors.primaryGreen,
-                                          )
-                                        : CircleAvatar(
-                                            backgroundColor:
-                                                AppColors.lightGreenBg,
-                                            child: Text(item.names[0][0],
-                                                style: const TextStyle(
-                                                    color:
-                                                        AppColors.primaryGreen,
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                          ),
-                                    title: Text(item.names[0],
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                    // SHOW MULTIPLE NAMES IN SUBTITLE
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (item.names.length > 1)
-                                          Text(item.names.sublist(1).join(", "),
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey[600])),
-                                        Text("₹${item.price} / ${item.unit}",
-                                            style: const TextStyle(
-                                                color: AppColors.primaryGreen,
-                                                fontWeight: FontWeight.bold)),
-                                      ],
+                                return RepaintBoundary(
+                                  child: Card(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    color: isSelected
+                                        ? AppColors.primaryGreen
+                                            .withOpacity(0.1)
+                                        : null,
+                                    child: ListTile(
+                                      onTap: _isDeleteMode
+                                          ? () => _toggleItemSelection(item.id)
+                                          : () => _showItemDialog(item: item),
+                                      onLongPress: () =>
+                                          _showItemDialog(item: item),
+                                      leading: _isDeleteMode
+                                          ? Checkbox(
+                                              value: isSelected,
+                                              onChanged: (val) =>
+                                                  _toggleItemSelection(item.id),
+                                              activeColor:
+                                                  AppColors.primaryGreen,
+                                            )
+                                          : CircleAvatar(
+                                              backgroundColor:
+                                                  AppColors.lightGreenBg,
+                                              child: Text(item.names[0][0],
+                                                  style: const TextStyle(
+                                                      color: AppColors
+                                                          .primaryGreen,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                            ),
+                                      title: Text(item.names[0],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      // SHOW MULTIPLE NAMES IN SUBTITLE
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (item.names.length > 1)
+                                            Text(
+                                                item.names
+                                                    .sublist(1)
+                                                    .join(", "),
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600])),
+                                          Text("₹${item.price} / ${item.unit}",
+                                              style: const TextStyle(
+                                                  color: AppColors.primaryGreen,
+                                                  fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                      trailing: _isDeleteMode
+                                          ? null
+                                          : IconButton(
+                                              icon: const Icon(Icons.edit,
+                                                  color: Colors.grey),
+                                              onPressed: () =>
+                                                  _showItemDialog(item: item),
+                                            ),
                                     ),
-                                    trailing: _isDeleteMode
-                                        ? null
-                                        : IconButton(
-                                            icon: const Icon(Icons.edit,
-                                                color: Colors.grey),
-                                            onPressed: () =>
-                                                _showItemDialog(item: item),
-                                          ),
                                   ),
                                 );
                               },

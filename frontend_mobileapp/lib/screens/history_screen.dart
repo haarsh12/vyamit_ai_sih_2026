@@ -146,254 +146,271 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                   ),
                 )
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Summary Cards - 2x2 Grid
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.4,
-                      children: [
-                        DashboardSummaryCard(
-                          title: 'Total Revenue',
-                          value: _formatCurrency(_dashboardData?.summary.totalRevenue ?? 0),
-                          icon: Icons.currency_rupee,
-                          color: Colors.green,
-                        ),
-                        DashboardSummaryCard(
-                          title: 'Total Bills',
-                          value: (_dashboardData?.summary.totalBills ?? 0).toString(),
-                          icon: Icons.receipt_long,
-                          color: Colors.blue,
-                        ),
-                        DashboardSummaryCard(
-                          title: 'Avg Bill Value',
-                          value: _formatCurrency(_dashboardData?.summary.averageBillValue ?? 0),
-                          icon: Icons.trending_up,
-                          color: Colors.orange,
-                        ),
-                        DashboardSummaryCard(
-                          title: 'Inventory Items',
-                          value: (_dashboardData?.summary.totalInventoryItems ?? 0).toString(),
-                          icon: Icons.inventory_2,
-                          color: Colors.purple,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Top Selling Items and Category Chart - Side by Side
-                    Row(
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TopSellingItemsWidget(
-                            items: _dashboardData?.topSellingItems ?? [],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CategoryPieChart(
-                            categories: _dashboardData?.categoryBreakdown ?? [],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Peak Hours Chart - Full Width
-                    PeakHoursChart(
-                      peakHours: _dashboardData?.peakHours ?? [],
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Verified Customers Section
-                    _buildVerifiedCustomersSection(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Bills History Section
-                    const Text(
-                      'Bill History',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    if (_bills.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.history_toggle_off_rounded,
-                                size: 60,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'No bills found',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Print a bill to see it here',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _bills.length,
-                        itemBuilder: (context, index) {
-                          final bill = _bills[index];
-                          return Card(
-                            elevation: 2,
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        // Summary Cards - 2x2 Grid
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1.4,
+                          children: [
+                            DashboardSummaryCard(
+                              title: 'Total Revenue',
+                              value: _formatCurrency(
+                                  _dashboardData?.summary.totalRevenue ?? 0),
+                              icon: Icons.currency_rupee,
+                              color: Colors.green,
                             ),
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: InkWell(
-                              onTap: () => _showBillDetails(bill),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: bill.billType == 'virtual' 
-                                          ? Colors.blue[50] 
-                                          : AppColors.lightGreenBg,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        bill.billingSource == 'frequent'
-                                            ? Icons.bolt_rounded
-                                            : bill.billType == 'virtual'
-                                                ? Icons.phone_android
-                                                : Icons.print,
-                                        color: bill.billType == 'virtual' 
-                                            ? Colors.blue
-                                            : bill.billingSource == 'frequent'
-                                                ? Colors.orange
-                                                : AppColors.primaryGreen,
-                                        size: 24,
-                                      ),
+                            DashboardSummaryCard(
+                              title: 'Total Bills',
+                              value: (_dashboardData?.summary.totalBills ?? 0)
+                                  .toString(),
+                              icon: Icons.receipt_long,
+                              color: Colors.blue,
+                            ),
+                            DashboardSummaryCard(
+                              title: 'Avg Bill Value',
+                              value: _formatCurrency(
+                                  _dashboardData?.summary.averageBillValue ??
+                                      0),
+                              icon: Icons.trending_up,
+                              color: Colors.orange,
+                            ),
+                            DashboardSummaryCard(
+                              title: 'Inventory Items',
+                              value: (_dashboardData
+                                          ?.summary.totalInventoryItems ??
+                                      0)
+                                  .toString(),
+                              icon: Icons.inventory_2,
+                              color: Colors.purple,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Top Selling Items and Category Chart - Side by Side
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TopSellingItemsWidget(
+                                items: _dashboardData?.topSellingItems ?? [],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: CategoryPieChart(
+                                categories:
+                                    _dashboardData?.categoryBreakdown ?? [],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Peak Hours Chart - Full Width
+                        PeakHoursChart(
+                          peakHours: _dashboardData?.peakHours ?? [],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Verified Customers Section
+                        _buildVerifiedCustomersSection(),
+
+                        const SizedBox(height: 24),
+
+                        // Bills History Section
+                        const Text(
+                          'Bill History',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_bills.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.history_toggle_off_rounded,
+                                    size: 60,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'No bills found',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Print a bill to see it here',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _bills.length,
+                            itemBuilder: (context, index) {
+                              final bill = _bills[index];
+                              return Card(
+                                elevation: 2,
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: InkWell(
+                                  onTap: () => _showBillDetails(bill),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: bill.billType == 'virtual'
+                                                ? Colors.blue[50]
+                                                : AppColors.lightGreenBg,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            bill.billingSource == 'frequent'
+                                                ? Icons.bolt_rounded
+                                                : bill.billType == 'virtual'
+                                                    ? Icons.phone_android
+                                                    : Icons.print,
+                                            color: bill.billType == 'virtual'
+                                                ? Colors.blue
+                                                : bill.billingSource ==
+                                                        'frequent'
+                                                    ? Colors.orange
+                                                    : AppColors.primaryGreen,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
                                             crossAxisAlignment:
-                                                WrapCrossAlignment.center,
+                                                CrossAxisAlignment.start,
                                             children: [
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 4,
+                                                crossAxisAlignment:
+                                                    WrapCrossAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    'Bill #${bill.id}',
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  BillTypeBadge(
+                                                      billType: bill.billType),
+                                                  BillingSourceBadge(
+                                                    billingSource:
+                                                        bill.billingSource,
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
                                               Text(
-                                                'Bill #${bill.id}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
+                                                '${DateFormat('dd MMM yyyy').format(bill.billDate)} • ${DateFormat('hh:mm a').format(bill.billDate)}',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              BillTypeBadge(billType: bill.billType),
-                                              BillingSourceBadge(
-                                                billingSource: bill.billingSource,
+                                              if (bill.customerName != null)
+                                                Text(
+                                                  bill.customerName!,
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 12,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 70,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Text(
+                                                  '₹${_formatNumber(bill.totalAmount)}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                    color:
+                                                        AppColors.primaryGreen,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${bill.totalItems} items',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 11,
+                                                ),
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${DateFormat('dd MMM yyyy').format(bill.billDate)} • ${DateFormat('hh:mm a').format(bill.billDate)}',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          if (bill.customerName != null)
-                                            Text(
-                                              bill.customerName!,
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 70,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerRight,
-                                            child: Text(
-                                              '₹${_formatNumber(bill.totalAmount)}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                                color: AppColors.primaryGreen,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${bill.totalItems} items',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
     );
   }
 
@@ -430,7 +447,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        
         if (_verifiedCustomers.isEmpty)
           Card(
             elevation: 1,
@@ -560,7 +576,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final shopAddress = widget.shopDetails.address;
     final shopPhone1 = widget.shopDetails.phone1;
     final shopPhone2 = widget.shopDetails.phone2;
-    
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -588,7 +604,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ),
-              
+
               // Phone Number
               if (bill.customerPhone != null)
                 Padding(
@@ -601,9 +617,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                 ),
-              
+
               Divider(height: 1, color: Colors.grey[300]),
-              
+
               // Bill details
               Flexible(
                 child: SingleChildScrollView(
@@ -631,7 +647,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                         ],
                       ),
-                      
+
                       // Time and Cust ID Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -652,9 +668,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Table Header
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -716,29 +732,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ],
                         ),
                       ),
-                      
+
                       // Items List
                       ...bill.items.map((item) {
                         final name = item['name'] ?? '';
-                        
+
                         // Try to get qty_display first, then fall back to qty/quantity
                         String qtyDisplay;
-                        if (item['qty_display'] != null && item['qty_display'].toString().isNotEmpty) {
+                        if (item['qty_display'] != null &&
+                            item['qty_display'].toString().isNotEmpty) {
                           qtyDisplay = item['qty_display'].toString();
                         } else {
                           final qty = item['quantity'] ?? item['qty'] ?? 0;
-                          final qtyDouble = qty is num ? qty.toDouble() : (double.tryParse(qty.toString()) ?? 0.0);
+                          final qtyDouble = qty is num
+                              ? qty.toDouble()
+                              : (double.tryParse(qty.toString()) ?? 0.0);
                           final unit = item['unit'] ?? '';
                           qtyDisplay = '${_formatNumber(qtyDouble)}${unit}';
                         }
-                        
+
                         final unit = item['unit'] ?? '';
                         final price = item['price'] ?? item['rate'] ?? 0;
                         final total = item['total'] ?? 0;
-                        
-                        final priceDouble = price is num ? price.toDouble() : (double.tryParse(price.toString()) ?? 0.0);
-                        final totalDouble = total is num ? total.toDouble() : (double.tryParse(total.toString()) ?? 0.0);
-                        
+
+                        final priceDouble = price is num
+                            ? price.toDouble()
+                            : (double.tryParse(price.toString()) ?? 0.0);
+                        final totalDouble = total is num
+                            ? total.toDouble()
+                            : (double.tryParse(total.toString()) ?? 0.0);
+
                         return Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
@@ -796,9 +819,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                         );
                       }).toList(),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Total Section
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -829,9 +852,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       // Footer
                       Center(
                         child: Column(
@@ -867,7 +890,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ),
-              
+
               // Close Button
               Container(
                 width: double.infinity,

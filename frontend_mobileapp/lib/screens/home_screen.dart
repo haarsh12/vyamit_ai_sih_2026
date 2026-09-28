@@ -340,7 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final suggestion = CustomerVerificationSuggestion.fromJson(
       Map<String, dynamic>.from(rawSuggestion),
     );
-    if (!suggestion.shouldVerify || suggestion.customerName == null || !mounted) {
+    if (!suggestion.shouldVerify ||
+        suggestion.customerName == null ||
+        !mounted) {
       return;
     }
 
@@ -384,7 +386,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bill printed, but the customer could not be verified.'),
+            content:
+                Text('Bill printed, but the customer could not be verified.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -476,7 +479,8 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Bill file created, but history was not saved. $error'),
+              content:
+                  Text('Bill file created, but history was not saved. $error'),
               backgroundColor: Colors.red,
             ),
           );

@@ -33,8 +33,10 @@ class GstInvoiceDraft {
   }) {
     String quantityOf(Map<String, dynamic> item) {
       final value = item['qty'] ?? item['quantity'];
-      if (value != null && value.toString().trim().isNotEmpty) return value.toString();
-      return (item['qty_display']?.toString() ?? '1').replaceAll(RegExp(r'[^0-9.]'), '');
+      if (value != null && value.toString().trim().isNotEmpty)
+        return value.toString();
+      return (item['qty_display']?.toString() ?? '1')
+          .replaceAll(RegExp(r'[^0-9.]'), '');
     }
 
     // Validate and normalize state code - default to '27' (Maharashtra) if invalid
@@ -42,10 +44,45 @@ class GstInvoiceDraft {
     if (customerStateCode != null && customerStateCode.trim().isNotEmpty) {
       final code = customerStateCode.trim().padLeft(2, '0');
       // Check if it's a valid state code (01-38, excluding some)
-      final validCodes = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
-                          '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-                          '21', '22', '23', '24', '26', '27', '29', '30', '31', '32',
-                          '33', '34', '35', '36', '37', '38', '97'];
+      final validCodes = [
+        '01',
+        '02',
+        '03',
+        '04',
+        '05',
+        '06',
+        '07',
+        '08',
+        '09',
+        '10',
+        '11',
+        '12',
+        '13',
+        '14',
+        '15',
+        '16',
+        '17',
+        '18',
+        '19',
+        '20',
+        '21',
+        '22',
+        '23',
+        '24',
+        '26',
+        '27',
+        '29',
+        '30',
+        '31',
+        '32',
+        '33',
+        '34',
+        '35',
+        '36',
+        '37',
+        '38',
+        '97'
+      ];
       if (validCodes.contains(code)) {
         normalizedStateCode = code;
       }
@@ -53,8 +90,11 @@ class GstInvoiceDraft {
 
     return GstInvoiceDraft(
       customer: {
-        'name': customerName.trim().isEmpty ? 'Walk-in customer' : customerName.trim(),
-        if (customerGstin != null && customerGstin.trim().isNotEmpty) 'gstin': customerGstin.trim(),
+        'name': customerName.trim().isEmpty
+            ? 'Walk-in customer'
+            : customerName.trim(),
+        if (customerGstin != null && customerGstin.trim().isNotEmpty)
+          'gstin': customerGstin.trim(),
         'state_code': normalizedStateCode,
       },
       items: billItems
@@ -65,11 +105,13 @@ class GstInvoiceDraft {
                 'rate': item['rate'] ?? item['price'] ?? 0,
                 'gst_rate': item['gst_rate'] ?? item['gstRate'] ?? 0,
                 if (item['hsn_code'] != null) 'hsn_code': item['hsn_code'],
-                if (item['tax_category'] != null) 'tax_category': item['tax_category'],
+                if (item['tax_category'] != null)
+                  'tax_category': item['tax_category'],
               })
           .toList(),
       paymentMethod: paymentMethod,
-      paymentStatus: paymentMethod.toLowerCase() == 'udhaar' ? 'UNPAID' : 'PAID',
+      paymentStatus:
+          paymentMethod.toLowerCase() == 'udhaar' ? 'UNPAID' : 'PAID',
       verifiedCustomerId: verifiedCustomerId,
     );
   }
@@ -90,7 +132,8 @@ class GstInvoiceDraft {
       if (issueDate != null) 'issue_date': _extractDateOnly(issueDate),
       if (dueDate != null) 'due_date': _extractDateOnly(dueDate),
       'payment_method': paymentMethod,
-      if (verifiedCustomerId != null) 'verified_customer_id': verifiedCustomerId,
+      if (verifiedCustomerId != null)
+        'verified_customer_id': verifiedCustomerId,
       'payment_status': paymentStatus,
       if (referenceNumber != null && referenceNumber!.trim().isNotEmpty)
         'reference_number': referenceNumber,

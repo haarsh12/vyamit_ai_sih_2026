@@ -6,13 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BillProvider with ChangeNotifier {
   // Live bill items (persists across screens)
   List<Map<String, dynamic>> _currentBillItems = [];
-  
+
   // Customer name for current bill
   String _customerName = "Walk-in";
-  
+
   // Sequential bill number
   int _lastBillNumber = 0;
-  
+
   // QR Code persistence
   String? _qrCodePath;
 
@@ -26,16 +26,16 @@ class BillProvider with ChangeNotifier {
   // Initialize provider - load persisted data
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Load last bill number
     _lastBillNumber = prefs.getInt('last_bill_number') ?? 0;
-    
+
     // Load QR code path
     _qrCodePath = prefs.getString('qr_code_path');
-    
+
     // Load customer name
     _customerName = prefs.getString('current_customer_name') ?? "Walk-in";
-    
+
     // Load current bill items (if app was closed with items)
     final billItemsJson = prefs.getString('current_bill_items');
     if (billItemsJson != null) {
@@ -53,7 +53,7 @@ class BillProvider with ChangeNotifier {
         _currentBillItems = [];
       }
     }
-    
+
     notifyListeners();
   }
 

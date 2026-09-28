@@ -49,7 +49,8 @@ class LiveKitVoiceService {
       final url = credentials['server_url']?.toString() ?? '';
       final token = credentials['participant_token']?.toString() ?? '';
       if (url.isEmpty || token.isEmpty) {
-        throw StateError('Voice service returned incomplete connection credentials.');
+        throw StateError(
+            'Voice service returned incomplete connection credentials.');
       }
 
       if (!_initialised) {
@@ -69,7 +70,8 @@ class LiveKitVoiceService {
       await room.connect(url, token);
       final participant = room.localParticipant;
       if (participant == null) {
-        throw StateError('Voice connection did not create a local participant.');
+        throw StateError(
+            'Voice connection did not create a local participant.');
       }
       await participant.setMicrophoneEnabled(true);
       _uiEvents.add(VoiceUiEvent('connected', {
@@ -77,7 +79,8 @@ class LiveKitVoiceService {
         'session_id': credentials['session_id']?.toString(),
       }));
     } catch (error) {
-      _uiEvents.add(VoiceUiEvent('error', {'message': 'Could not start voice session.'}));
+      _uiEvents.add(
+          VoiceUiEvent('error', {'message': 'Could not start voice session.'}));
       await disconnect();
       rethrow;
     } finally {
@@ -123,7 +126,8 @@ class LiveKitVoiceService {
         debugPrint('🔌 LIVEKIT: Event type is null or empty');
         return;
       }
-      debugPrint('🔌 LIVEKIT: Publishing VoiceUiEvent with type=$type, payload keys=${payload.keys.toList()}');
+      debugPrint(
+          '🔌 LIVEKIT: Publishing VoiceUiEvent with type=$type, payload keys=${payload.keys.toList()}');
       _uiEvents.add(VoiceUiEvent(type, payload));
     } on FormatException catch (e) {
       debugPrint('🔌 LIVEKIT: FormatException while parsing data: $e');

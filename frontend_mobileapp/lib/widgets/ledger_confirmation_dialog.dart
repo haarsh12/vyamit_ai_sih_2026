@@ -7,6 +7,7 @@ import '../core/theme.dart';
 /// The backend receives only a draft before this dialog is accepted.
 class LedgerConfirmationDialog extends StatefulWidget {
   final Map<String, dynamic> draft;
+
   /// Returns null after a successful write, otherwise a user-facing error.
   ///
   /// The dialog owns navigation so a caller never pops this route while this
@@ -20,7 +21,8 @@ class LedgerConfirmationDialog extends StatefulWidget {
   });
 
   @override
-  State<LedgerConfirmationDialog> createState() => _LedgerConfirmationDialogState();
+  State<LedgerConfirmationDialog> createState() =>
+      _LedgerConfirmationDialogState();
 }
 
 class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
@@ -60,7 +62,8 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
     final current = _amount('current_balance');
     final proposed = _amount('proposed_balance');
     final accent = isUdhaar ? const Color(0xFFB54708) : AppColors.primaryGreen;
-    final customer = widget.draft['customer_name']?.toString() ?? 'this customer';
+    final customer =
+        widget.draft['customer_name']?.toString() ?? 'this customer';
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 22),
@@ -76,8 +79,12 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
               child: Container(
                 width: 54,
                 height: 54,
-                decoration: BoxDecoration(color: accent.withOpacity(.12), shape: BoxShape.circle),
-                child: Icon(isUdhaar ? Icons.add_card_rounded : Icons.payments_rounded, color: accent, size: 28),
+                decoration: BoxDecoration(
+                    color: accent.withOpacity(.12), shape: BoxShape.circle),
+                child: Icon(
+                    isUdhaar ? Icons.add_card_rounded : Icons.payments_rounded,
+                    color: accent,
+                    size: 28),
               ),
             ),
             const SizedBox(height: 16),
@@ -95,18 +102,25 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: const Color(0xFFF7F9F8), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF7F9F8),
+                  borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
-                  Expanded(child: _balance('Current due', current, Colors.black87)),
+                  Expanded(
+                      child: _balance('Current due', current, Colors.black87)),
                   Container(width: 1, height: 36, color: Colors.grey.shade300),
-                  Expanded(child: _balance('After confirmation', proposed, accent)),
+                  Expanded(
+                      child: _balance('After confirmation', proposed, accent)),
                 ],
               ),
             ),
-            if ((widget.draft['note']?.toString().trim().isNotEmpty ?? false)) ...[
+            if ((widget.draft['note']?.toString().trim().isNotEmpty ??
+                false)) ...[
               const SizedBox(height: 12),
-              Text('Note: ${widget.draft['note']}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
+              Text('Note: ${widget.draft['note']}',
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.textGrey)),
             ],
             if (_confirmationError != null) ...[
               const SizedBox(height: 12),
@@ -118,7 +132,8 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
                 ),
                 child: Text(
                   _confirmationError!,
-                  style: const TextStyle(color: Color(0xFFB42318), fontSize: 12),
+                  style:
+                      const TextStyle(color: Color(0xFFB42318), fontSize: 12),
                 ),
               ),
             ],
@@ -127,19 +142,40 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isConfirming ? null : () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13), side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    child: const Text('No, cancel', style: TextStyle(color: AppColors.textBlack, fontWeight: FontWeight.w700)),
+                    onPressed: _isConfirming
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    child: const Text('No, cancel',
+                        style: TextStyle(
+                            color: AppColors.textBlack,
+                            fontWeight: FontWeight.w700)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _isConfirming ? null : _confirm,
-                    style: ElevatedButton.styleFrom(backgroundColor: accent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
                     child: _isConfirming
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Yes, confirm', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Yes, confirm',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800)),
                   ),
                 ),
               ],
@@ -153,9 +189,16 @@ class _LedgerConfirmationDialogState extends State<LedgerConfirmationDialog> {
   Widget _balance(String label, double amount, Color color) {
     return Column(
       children: [
-        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: AppColors.textGrey, fontWeight: FontWeight.w600)),
+        Text(label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.textGrey,
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('₹${amount.toStringAsFixed(2)}', style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15)),
+        Text('₹${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w800, fontSize: 15)),
       ],
     );
   }

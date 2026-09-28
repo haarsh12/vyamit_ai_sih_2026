@@ -59,11 +59,11 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
         DateTime.now();
     _dueDate = DateTime.tryParse(widget.initialDraft.dueDate ?? '') ??
         _issueDate.add(const Duration(days: 30));
-    
+
     // Normalize payment method to uppercase for dropdown compatibility
     _paymentMethod = widget.initialDraft.paymentMethod.toUpperCase();
     _paymentStatus = widget.initialDraft.paymentStatus.toUpperCase();
-    
+
     _referenceNumber = widget.initialDraft.referenceNumber ?? '';
     _bankDetails =
         Map<String, dynamic>.from(widget.initialDraft.bankDetails ?? const {});
@@ -76,37 +76,39 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
         sellerOverride: _sellerOverride.isEmpty ? null : _sellerOverride,
         issueDate: _issueDate.toIso8601String(),
         dueDate: _dueDate.toIso8601String(),
-        paymentMethod: _paymentMethod.toLowerCase(),  // Convert back to lowercase for API
+        paymentMethod:
+            _paymentMethod.toLowerCase(), // Convert back to lowercase for API
         verifiedCustomerId: widget.initialDraft.verifiedCustomerId,
-        paymentStatus: _paymentStatus,  // Keep uppercase for API
+        paymentStatus: _paymentStatus, // Keep uppercase for API
         referenceNumber: _referenceNumber,
         bankDetails: _bankDetails,
       );
 
   String _parseErrorMessage(dynamic error) {
     final errorStr = error.toString();
-    
+
     // Check for validation errors in the error message
     if (errorStr.contains('state_code must be a valid Indian GST state')) {
       return 'Invalid State Code\n\nPlease select a valid Indian state code (01-37) instead of "00" or other invalid codes.\n\nCommon codes:\n• Maharashtra: 27\n• Delhi: 07\n• Karnataka: 29\n• Tamil Nadu: 33';
     }
-    
-    if (errorStr.contains('Datetimes provided to dates should have zero time')) {
+
+    if (errorStr
+        .contains('Datetimes provided to dates should have zero time')) {
       return 'Date Format Error\n\nThere was an issue with the date format. Please try selecting the dates again from the date picker.';
     }
-    
+
     if (errorStr.contains('GSTIN checksum is invalid')) {
       return 'Invalid GSTIN Number\n\nThe GSTIN number you entered has an invalid checksum. Please verify and correct your GSTIN.';
     }
-    
+
     if (errorStr.contains('Connection Error') || errorStr.contains('Backend')) {
       return 'Connection Error\n\nUnable to connect to the server. Please check if:\n• Your internet connection is active\n• The backend server is running\n• The server URL is correctly configured';
     }
-    
+
     if (errorStr.contains('Server Error 422')) {
       return 'Validation Error\n\nSome required fields are missing or invalid. Please check:\n• State code is valid (not "00")\n• All required customer details are filled\n• Item quantities and prices are valid';
     }
-    
+
     // Return a cleaned version of the error
     return 'Error Loading Preview\n\n${errorStr.replaceAll('Exception:', '').replaceAll('Error:', '').trim()}';
   }
@@ -512,7 +514,7 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
   Future<void> _finalizeAndPrint() async {
     // Check printer connection in real-time
     final isConnected = await PrinterService().isConnected();
-    
+
     if (!isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content:
@@ -524,7 +526,8 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
     if (_paymentMethod == 'UDHAAR' && !_udhaarApproved) {
       if (widget.initialDraft.verifiedCustomerId == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Select a verified customer before setting this invoice as udhaar.'),
+          content: Text(
+              'Select a verified customer before setting this invoice as udhaar.'),
           backgroundColor: Colors.red,
         ));
         return;
@@ -699,10 +702,12 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
                                             size: 18),
                                         const SizedBox(width: 6),
                                         Expanded(
-                                          child: Text('TAX INVOICE DETAILS ARE EDITABLE',
+                                          child: Text(
+                                              'TAX INVOICE DETAILS ARE EDITABLE',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w900,
-                                                  color: AppColors.primaryGreen)),
+                                                  color:
+                                                      AppColors.primaryGreen)),
                                         ),
                                       ],
                                     ),
@@ -813,9 +818,9 @@ class _GstInvoicePreviewScreenState extends State<GstInvoicePreviewScreen> {
                                         ],
                                         onChanged: _finalizedInvoiceId == null
                                             ? (val) => setState(() {
-                                                _paymentMethod = val!;
-                                                _udhaarApproved = false;
-                                              })
+                                                  _paymentMethod = val!;
+                                                  _udhaarApproved = false;
+                                                })
                                             : null,
                                       ),
                                     ),

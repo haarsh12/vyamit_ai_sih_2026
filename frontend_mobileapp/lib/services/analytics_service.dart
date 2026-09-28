@@ -45,7 +45,8 @@ class AnalyticsService {
     }
   }
 
-  Future<List<BillHistory>> getBills(String token, {int limit = 50, int offset = 0}) async {
+  Future<List<BillHistory>> getBills(String token,
+      {int limit = 50, int offset = 0}) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/analytics/bills?limit=$limit&offset=$offset'),
@@ -87,24 +88,27 @@ class AnalyticsService {
     String billingSource = 'voice',
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/analytics/bills'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Idempotency-Key': const Uuid().v4(),
-        },
-        body: json.encode({
-          'total_amount': totalAmount,
-          'items': items,
-          'customer_phone': customerPhone,
-          'customer_name': customerName,
-          if (verifiedCustomerId != null) 'verified_customer_id': verifiedCustomerId,
-          'payment_method': paymentMethod,
-          'bill_type': billType,
-          'billing_source': billingSource,
-        }),
-      ).timeout(_requestTimeout);
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/analytics/bills'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+              'Idempotency-Key': const Uuid().v4(),
+            },
+            body: json.encode({
+              'total_amount': totalAmount,
+              'items': items,
+              'customer_phone': customerPhone,
+              'customer_name': customerName,
+              if (verifiedCustomerId != null)
+                'verified_customer_id': verifiedCustomerId,
+              'payment_method': paymentMethod,
+              'bill_type': billType,
+              'billing_source': billingSource,
+            }),
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
@@ -139,6 +143,8 @@ class AnalyticsService {
     if (response.statusCode == 401) {
       return 'Your session has expired. Please sign in again.';
     }
-    return detail.isEmpty ? '$prefix (server error ${response.statusCode}).' : '$prefix: $detail';
+    return detail.isEmpty
+        ? '$prefix (server error ${response.statusCode}).'
+        : '$prefix: $detail';
   }
 }

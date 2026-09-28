@@ -16,7 +16,8 @@ class CustomerService {
         '/customers/?limit=$limit&offset=$offset&order_by=$orderBy',
       );
 
-      return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data)).customers;
+      return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data))
+          .customers;
     } catch (e) {
       throw Exception('Failed to load verified customers: $e');
     }
@@ -154,7 +155,8 @@ class CustomerService {
     String draftId,
     int expectedVersion,
   ) async {
-    final requestId = '${DateTime.now().microsecondsSinceEpoch}-$customerId-$draftId';
+    final requestId =
+        '${DateTime.now().microsecondsSinceEpoch}-$customerId-$draftId';
     final response = await _apiClient.post(
       '/customers/$customerId/ledger-drafts/$draftId/confirm',
       {'expected_version': expectedVersion},

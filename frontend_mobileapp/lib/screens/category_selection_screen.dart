@@ -23,24 +23,95 @@ class _CategoryPresentation {
 }
 
 const _categories = <_CategoryPresentation>[
-  _CategoryPresentation(name: 'Kirana', title: 'Kirana & Grocery', description: 'Groceries, daily essentials, loose items and household provisions.', tag: 'Popular', icon: Icons.shopping_basket_rounded, accent: Color(0xFFE8F5E9)),
-  _CategoryPresentation(name: 'Pharmacy', title: 'Pharmacy & Medical', description: 'Medicines, wellness products, first aid and medical supplies.', tag: 'Healthcare', icon: Icons.local_pharmacy_rounded, accent: Color(0xFFE3F5FF)),
-  _CategoryPresentation(name: 'Doctor Prescription', title: 'Doctor & Prescription', description: 'Voice-assisted prescription drafting and patient records.', tag: 'Clinical', icon: Icons.medical_services_rounded, accent: Color(0xFFF4E8FF)),
-  _CategoryPresentation(name: 'Dairy', title: 'Dairy & Fresh', description: 'Milk, curd, paneer and other fresh daily products.', tag: 'Fresh', icon: Icons.egg_alt_rounded, accent: Color(0xFFE5F7FF)),
-  _CategoryPresentation(name: 'Hardware', title: 'Hardware & Tools', description: 'Construction tools, electrical fittings, pipes and hardware items.', tag: 'Industrial', icon: Icons.build_rounded, accent: Color(0xFFF1F4F6)),
-  _CategoryPresentation(name: 'Bakery', title: 'Bakery & Cakes', description: 'Cakes, bread, pastries, snacks and made-to-order products.', tag: 'Freshly baked', icon: Icons.cake_rounded, accent: Color(0xFFFFE9F1)),
-  _CategoryPresentation(name: 'Fast Food', title: 'Fast Food & Cafe', description: 'Quick-service menus, meals, beverages and takeaway orders.', tag: 'Food', icon: Icons.fastfood_rounded, accent: Color(0xFFFFF1E6)),
-  _CategoryPresentation(name: 'Stationery', title: 'Stationery & Books', description: 'School supplies, office essentials and books.', tag: 'Everyday', icon: Icons.edit_note_rounded, accent: Color(0xFFEAF0FF)),
-  _CategoryPresentation(name: 'Clothing', title: 'Clothing & Fashion', description: 'Garments, accessories and size-based items.', tag: 'Retail', icon: Icons.checkroom_rounded, accent: Color(0xFFFFEEF6)),
-  _CategoryPresentation(name: 'General', title: 'General Store', description: 'A flexible setup for mixed retail and daily-needs shops.', tag: 'Flexible', icon: Icons.storefront_rounded, accent: Color(0xFFF4F4F4)),
-  _CategoryPresentation(name: 'Other', title: 'Other Business', description: 'Start with a flexible catalog and customize it for your business.', tag: 'Flexible', icon: Icons.auto_awesome_rounded, accent: Color(0xFFFFF7DF)),
+  _CategoryPresentation(
+      name: 'Kirana',
+      title: 'Kirana & Grocery',
+      description:
+          'Groceries, daily essentials, loose items and household provisions.',
+      tag: 'Popular',
+      icon: Icons.shopping_basket_rounded,
+      accent: Color(0xFFE8F5E9)),
+  _CategoryPresentation(
+      name: 'Pharmacy',
+      title: 'Pharmacy & Medical',
+      description:
+          'Medicines, wellness products, first aid and medical supplies.',
+      tag: 'Healthcare',
+      icon: Icons.local_pharmacy_rounded,
+      accent: Color(0xFFE3F5FF)),
+  _CategoryPresentation(
+      name: 'Doctor Prescription',
+      title: 'Doctor & Prescription',
+      description: 'Voice-assisted prescription drafting and patient records.',
+      tag: 'Clinical',
+      icon: Icons.medical_services_rounded,
+      accent: Color(0xFFF4E8FF)),
+  _CategoryPresentation(
+      name: 'Dairy',
+      title: 'Dairy & Fresh',
+      description: 'Milk, curd, paneer and other fresh daily products.',
+      tag: 'Fresh',
+      icon: Icons.egg_alt_rounded,
+      accent: Color(0xFFE5F7FF)),
+  _CategoryPresentation(
+      name: 'Hardware',
+      title: 'Hardware & Tools',
+      description:
+          'Construction tools, electrical fittings, pipes and hardware items.',
+      tag: 'Industrial',
+      icon: Icons.build_rounded,
+      accent: Color(0xFFF1F4F6)),
+  _CategoryPresentation(
+      name: 'Bakery',
+      title: 'Bakery & Cakes',
+      description: 'Cakes, bread, pastries, snacks and made-to-order products.',
+      tag: 'Freshly baked',
+      icon: Icons.cake_rounded,
+      accent: Color(0xFFFFE9F1)),
+  _CategoryPresentation(
+      name: 'Fast Food',
+      title: 'Fast Food & Cafe',
+      description: 'Quick-service menus, meals, beverages and takeaway orders.',
+      tag: 'Food',
+      icon: Icons.fastfood_rounded,
+      accent: Color(0xFFFFF1E6)),
+  _CategoryPresentation(
+      name: 'Stationery',
+      title: 'Stationery & Books',
+      description: 'School supplies, office essentials and books.',
+      tag: 'Everyday',
+      icon: Icons.edit_note_rounded,
+      accent: Color(0xFFEAF0FF)),
+  _CategoryPresentation(
+      name: 'Clothing',
+      title: 'Clothing & Fashion',
+      description: 'Garments, accessories and size-based items.',
+      tag: 'Retail',
+      icon: Icons.checkroom_rounded,
+      accent: Color(0xFFFFEEF6)),
+  _CategoryPresentation(
+      name: 'General',
+      title: 'General Store',
+      description: 'A flexible setup for mixed retail and daily-needs shops.',
+      tag: 'Flexible',
+      icon: Icons.storefront_rounded,
+      accent: Color(0xFFF4F4F4)),
+  _CategoryPresentation(
+      name: 'Other',
+      title: 'Other Business',
+      description:
+          'Start with a flexible catalog and customize it for your business.',
+      tag: 'Flexible',
+      icon: Icons.auto_awesome_rounded,
+      accent: Color(0xFFFFF7DF)),
 ];
 
 class CategorySelectionScreen extends StatefulWidget {
   const CategorySelectionScreen({super.key});
 
   @override
-  State<CategorySelectionScreen> createState() => _CategorySelectionScreenState();
+  State<CategorySelectionScreen> createState() =>
+      _CategorySelectionScreenState();
 }
 
 class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
@@ -63,7 +134,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RegistrationScreen(initialShopCategory: _categories[_selectedIndex].name),
+        builder: (_) => RegistrationScreen(
+            initialShopCategory: _categories[_selectedIndex].name),
       ),
     );
   }
@@ -131,8 +203,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            _PageDots(
-                selectedIndex: _selectedIndex, total: _categories.length),
+            _PageDots(selectedIndex: _selectedIndex, total: _categories.length),
             const SizedBox(height: 10),
             SizedBox(
               height: 42,
@@ -157,14 +228,12 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: selected
-                                ? Colors.white
-                                : AppColors.textGrey)),
+                            color:
+                                selected ? Colors.white : AppColors.textGrey)),
                     avatar: Icon(item.icon,
                         size: 16,
-                        color: selected
-                            ? Colors.white
-                            : AppColors.primaryGreen),
+                        color:
+                            selected ? Colors.white : AppColors.primaryGreen),
                     onSelected: (_) => _pageController.animateToPage(index,
                         duration: const Duration(milliseconds: 280),
                         curve: Curves.easeOutCubic),
@@ -217,9 +286,8 @@ class _CategoryCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-              color: selected
-                  ? AppColors.primaryGreen
-                  : const Color(0xFFE1E7ED),
+              color:
+                  selected ? AppColors.primaryGreen : const Color(0xFFE1E7ED),
               width: selected ? 2.5 : 1),
           boxShadow: [
             BoxShadow(
@@ -308,10 +376,21 @@ class _Pill extends StatelessWidget {
   const _Pill({required this.icon, required this.label});
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-    decoration: BoxDecoration(color: AppColors.primaryGreen, borderRadius: BorderRadius.circular(18)),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 15, color: Colors.white), const SizedBox(width: 5), Text(label.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: .5))]),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+            color: AppColors.primaryGreen,
+            borderRadius: BorderRadius.circular(18)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(label.toUpperCase(),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  letterSpacing: .5))
+        ]),
+      );
 }
 
 class _PageDots extends StatelessWidget {
@@ -320,13 +399,19 @@ class _PageDots extends StatelessWidget {
   const _PageDots({required this.selectedIndex, required this.total});
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: List.generate(total, (index) => AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: 8,
-      width: index == selectedIndex ? 26 : 8,
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(color: index == selectedIndex ? AppColors.primaryGreen : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(8)),
-    )),
-  );
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+            total,
+            (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 8,
+                  width: index == selectedIndex ? 26 : 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                      color: index == selectedIndex
+                          ? AppColors.primaryGreen
+                          : const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(8)),
+                )),
+      );
 }

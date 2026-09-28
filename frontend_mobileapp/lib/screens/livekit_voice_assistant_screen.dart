@@ -52,7 +52,8 @@ class _LiveKitVoiceAssistantScreenState
 
   // Session & Voice state
   bool _isSessionActive = false;
-  String _sessionState = "IDLE"; // IDLE, INITIALIZING, SETUP, READY, LISTENING, THINKING, TOOL_EXECUTING, SPEAKING
+  String _sessionState =
+      "IDLE"; // IDLE, INITIALIZING, SETUP, READY, LISTENING, THINKING, TOOL_EXECUTING, SPEAKING
   String _stateLabel = "Tap to Start";
   String _transcript = "";
   String _agentResponse = "Tap to Start";
@@ -123,7 +124,8 @@ class _LiveKitVoiceAssistantScreenState
         if (response['type'] == 'BILL' && draft is Map) {
           _applyBillDraftPayload(Map<String, dynamic>.from(draft));
           setState(() => _isManualLiveBillOpen = true);
-        } else if (response['type'] == 'LEDGER' && response['ledger_draft'] is Map) {
+        } else if (response['type'] == 'LEDGER' &&
+            response['ledger_draft'] is Map) {
           unawaited(_presentLedgerConfirmation(
             Map<String, dynamic>.from(response['ledger_draft'] as Map),
           ));
@@ -183,7 +185,8 @@ class _LiveKitVoiceAssistantScreenState
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Could not start secure voice session. Please try again."),
+          content:
+              Text("Could not start secure voice session. Please try again."),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -269,7 +272,8 @@ class _LiveKitVoiceAssistantScreenState
       final transcript = await _longBillSpeech.stop();
       if (!mounted) return;
       if (transcript.trim().length < 2) {
-        setState(() => _longBillStatus = 'No speech was recognized. Please try again.');
+        setState(() =>
+            _longBillStatus = 'No speech was recognized. Please try again.');
         return;
       }
       await _submitLongBillTranscript(transcript);
@@ -309,7 +313,8 @@ class _LiveKitVoiceAssistantScreenState
     try {
       final response = await _longBillService.createDraft(transcript);
       if (!mounted) return;
-      final message = response['message']?.toString() ?? 'Long Bill review is ready.';
+      final message =
+          response['message']?.toString() ?? 'Long Bill review is ready.';
       final draft = response['draft'];
       final status = response['status']?.toString();
       final unresolvedSegments = response['unresolved_segments'];
@@ -335,7 +340,8 @@ class _LiveKitVoiceAssistantScreenState
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _longBillStatus = 'Could not create the draft. Check your connection and try again.';
+        _longBillStatus =
+            'Could not create the draft. Check your connection and try again.';
       });
     } finally {
       if (mounted) setState(() => _isLongBillSubmitting = false);
@@ -346,65 +352,71 @@ class _LiveKitVoiceAssistantScreenState
     _audioLevelTimer?.cancel();
     int tick = 0;
     _audioLevelTimer = Timer.periodic(
-      const Duration(milliseconds: 100),
+      const Duration(milliseconds: 150),
       (timer) {
         if (!_isSessionActive) {
           timer.cancel();
           return;
         }
         tick++;
-        setState(() {
-          switch (_sessionState) {
-            case "INITIALIZING":
-            case "SETUP":
-              _audioLevel = 0.2 + (0.15 * (tick % 10) / 10);
-              break;
-            case "READY":
-              _audioLevel = 0.4 + (0.1 * (tick % 10) / 10);
-              break;
-            case "LISTENING":
-              if (_transcript.isNotEmpty) {
-                _audioLevel = 0.6 + (0.4 * (tick % 10) / 10);
-              } else {
-                _audioLevel = 0.3 + (0.2 * (tick % 10) / 10);
-              }
-              break;
-            case "THINKING":
-              _audioLevel = 0.4 + (0.25 * (tick % 10) / 10);
-              break;
-            case "TOOL_EXECUTING":
-              _audioLevel = 0.45 + (0.3 * (tick % 10) / 10);
-              break;
-            case "SPEAKING":
-              _audioLevel = 0.5 + (0.4 * (tick % 10) / 10);
-              break;
-            default:
-              _audioLevel = 0.3 + (0.2 * (tick % 10) / 10);
-          }
-        });
+        double newLevel = 0.3;
+        switch (_sessionState) {
+          case "INITIALIZING":
+          case "SETUP":
+            newLevel = 0.2 + (0.15 * (tick % 10) / 10);
+            break;
+          case "READY":
+            newLevel = 0.4 + (0.1 * (tick % 10) / 10);
+            break;
+          case "LISTENING":
+            if (_transcript.isNotEmpty) {
+              newLevel = 0.6 + (0.4 * (tick % 10) / 10);
+            } else {
+              newLevel = 0.3 + (0.2 * (tick % 10) / 10);
+            }
+            break;
+          case "THINKING":
+            newLevel = 0.4 + (0.25 * (tick % 10) / 10);
+            break;
+          case "TOOL_EXECUTING":
+            newLevel = 0.45 + (0.3 * (tick % 10) / 10);
+            break;
+          case "SPEAKING":
+            newLevel = 0.5 + (0.4 * (tick % 10) / 10);
+            break;
+          default:
+            newLevel = 0.3 + (0.2 * (tick % 10) / 10);
+        }
+        if (mounted && (newLevel - _audioLevel).abs() >= 0.06) {
+          setState(() {
+            _audioLevel = newLevel;
+          });
+        }
       },
     );
   }
 
   void _handleVoiceEvent(VoiceUiEvent event) {
     if (!mounted) return;
-    
+
     debugPrint('🎤 VOICE EVENT: ${event.type}');
-    
+
     switch (event.type) {
       case 'initializing':
         setState(() {
           _sessionState = "INITIALIZING";
           _stateLabel = "Initializing";
-          _agentResponse = event.payload['message']?.toString() ?? "Setting up...";
+          _agentResponse =
+              event.payload['message']?.toString() ?? "Setting up...";
         });
         break;
-      
+
       case 'setup':
         setState(() {
           _sessionState = "SETUP";
           _stateLabel = "Setting up";
-          _agentResponse = event.payload['message']?.toString() ?? "Preparing voice agent...";
+          _agentResponse = event.payload['message']?.toString() ??
+              "Preparing voice agent...";
         });
         break;
 
@@ -416,7 +428,8 @@ class _LiveKitVoiceAssistantScreenState
           _stateLabel = "Ready";
           _agentResponse = "Ready to listen";
           if (startupTime != null) {
-            _startupTimeMs = (startupTime is num) ? startupTime.toDouble() : 0.0;
+            _startupTimeMs =
+                (startupTime is num) ? startupTime.toDouble() : 0.0;
           }
         });
         debugPrint('🎉 VOICE: Session ready in ${_startupTimeMs}ms');
@@ -439,7 +452,8 @@ class _LiveKitVoiceAssistantScreenState
             _isSessionActive = true;
             _sessionState = "LISTENING";
             _stateLabel = "Listening";
-            if (_agentResponse == "Setting up..." || _agentResponse == "Preparing voice agent...") {
+            if (_agentResponse == "Setting up..." ||
+                _agentResponse == "Preparing voice agent...") {
               _agentResponse = "Listening...";
             }
           });
@@ -472,10 +486,12 @@ class _LiveKitVoiceAssistantScreenState
           if (state.contains('listening')) {
             _sessionState = "LISTENING";
             _stateLabel = label.isNotEmpty ? label : "Listening";
-            if (_agentResponse == "Thinking..." || _agentResponse == "AI Speaking...") {
+            if (_agentResponse == "Thinking..." ||
+                _agentResponse == "AI Speaking...") {
               _agentResponse = "Listening...";
             }
-          } else if (state.contains('thinking') || state.contains('processing')) {
+          } else if (state.contains('thinking') ||
+              state.contains('processing')) {
             _sessionState = "THINKING";
             _stateLabel = label.isNotEmpty ? label : "Thinking";
             if (_agentResponse == "Listening...") {
@@ -490,7 +506,7 @@ class _LiveKitVoiceAssistantScreenState
           }
         });
         break;
-      
+
       case 'tool_executing':
         final toolName = event.payload['tool']?.toString() ?? 'tool';
         setState(() {
@@ -507,7 +523,7 @@ class _LiveKitVoiceAssistantScreenState
           _stateLabel = "Listening";
         });
         break;
-      
+
       case 'speech_interrupted':
         debugPrint('⏹️ VOICE: Agent speech stopped');
         break;
@@ -519,7 +535,8 @@ class _LiveKitVoiceAssistantScreenState
       case 'ledger_adjustment_draft':
         final draft = event.payload['draft'];
         if (draft is Map) {
-          unawaited(_presentLedgerConfirmation(Map<String, dynamic>.from(draft)));
+          unawaited(
+              _presentLedgerConfirmation(Map<String, dynamic>.from(draft)));
         }
         break;
 
@@ -543,7 +560,8 @@ class _LiveKitVoiceAssistantScreenState
     Map<String, dynamic> payload, {
     bool replaceExistingBill = false,
   }) {
-    final draftId = (payload['draft_id'] ?? payload['id'])?.toString().trim() ?? '';
+    final draftId =
+        (payload['draft_id'] ?? payload['id'])?.toString().trim() ?? '';
     if (draftId.isNotEmpty && _handledBillDraftIds.contains(draftId)) {
       return;
     }
@@ -568,7 +586,8 @@ class _LiveKitVoiceAssistantScreenState
         'en': name,
         'hi': name,
         'qty': '$quantity',
-        'qty_display': item['qty_display']?.toString() ?? '${_formatNumber(quantity)} $unit',
+        'qty_display': item['qty_display']?.toString() ??
+            '${_formatNumber(quantity)} $unit',
         'rate': rate,
         // Recalculate on the client so stale transport values cannot alter a bill.
         'total': _roundMoney(rate * quantity),
@@ -579,10 +598,10 @@ class _LiveKitVoiceAssistantScreenState
     if (billItems.isEmpty) return;
 
     final rawSuggestion = payload['customer_verification_suggestion'];
-    _pendingCustomerVerificationSuggestion = rawSuggestion is Map
-        ? Map<String, dynamic>.from(rawSuggestion)
-        : null;
-    _pendingPaymentMethod = state['payment_method']?.toString().trim().toLowerCase() ?? 'cash';
+    _pendingCustomerVerificationSuggestion =
+        rawSuggestion is Map ? Map<String, dynamic>.from(rawSuggestion) : null;
+    _pendingPaymentMethod =
+        state['payment_method']?.toString().trim().toLowerCase() ?? 'cash';
     final rawCustomerId = state['verified_customer_id'];
     _pendingVerifiedCustomerId = rawCustomerId is num
         ? rawCustomerId.toInt()
@@ -789,7 +808,8 @@ class _LiveKitVoiceAssistantScreenState
         context: context,
         barrierDismissible: false,
         builder: (_) => UdhaarBillConfirmationDialog(
-          customerName: customerName.isEmpty ? 'this verified customer' : customerName,
+          customerName:
+              customerName.isEmpty ? 'this verified customer' : customerName,
           amount: billProvider.billTotal,
         ),
       );
@@ -859,7 +879,8 @@ class _LiveKitVoiceAssistantScreenState
       'shopPhone': widget.shopDetails.phone1,
       'items': itemsCopy,
       if (_pendingCustomerVerificationSuggestion != null)
-        'customer_verification_suggestion': _pendingCustomerVerificationSuggestion,
+        'customer_verification_suggestion':
+            _pendingCustomerVerificationSuggestion,
     };
 
     widget.onBillFinalized(billData);
@@ -877,7 +898,8 @@ class _LiveKitVoiceAssistantScreenState
 
   Future<void> _presentLedgerConfirmation(Map<String, dynamic> draft) async {
     final draftId = draft['id']?.toString().trim() ?? '';
-    if (draftId.isEmpty || _handledLedgerDraftIds.contains(draftId) || !mounted) return;
+    if (draftId.isEmpty || _handledLedgerDraftIds.contains(draftId) || !mounted)
+      return;
     _handledLedgerDraftIds.add(draftId);
     final customerId = (draft['customer_id'] as num?)?.toInt() ??
         int.tryParse(draft['customer_id']?.toString() ?? '');
@@ -891,8 +913,10 @@ class _LiveKitVoiceAssistantScreenState
         draft: draft,
         onConfirm: () async {
           try {
-            final response = await _customerService.confirmLedgerDraft(customerId, draftId, version);
-            successMessage = response['message']?.toString() ?? 'Ledger updated';
+            final response = await _customerService.confirmLedgerDraft(
+                customerId, draftId, version);
+            successMessage =
+                response['message']?.toString() ?? 'Ledger updated';
             return null;
           } catch (error) {
             return 'Ledger was not updated: $error';
@@ -904,7 +928,8 @@ class _LiveKitVoiceAssistantScreenState
       final message = successMessage ?? 'Ledger updated';
       setState(() => _agentResponse = message);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.primaryGreen),
+        SnackBar(
+            content: Text(message), backgroundColor: AppColors.primaryGreen),
       );
     }
   }
@@ -1144,7 +1169,8 @@ class _LiveKitVoiceAssistantScreenState
                 height: 142 + (audioLevel * 20),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: activeColor.withOpacity(.22), width: 2),
+                  border:
+                      Border.all(color: activeColor.withOpacity(.22), width: 2),
                 ),
               ),
             AnimatedScale(
@@ -1169,13 +1195,16 @@ class _LiveKitVoiceAssistantScreenState
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: active ? activeColor.withOpacity(.28) : Colors.black12,
+                      color: active
+                          ? activeColor.withOpacity(.28)
+                          : Colors.black12,
                       blurRadius: active ? 24 : 10,
                       spreadRadius: active ? 3 : 1,
                     ),
                   ],
                 ),
-                child: Icon(icon, size: 46, color: active ? Colors.white : Colors.black87),
+                child: Icon(icon,
+                    size: 46, color: active ? Colors.white : Colors.black87),
               ),
             ),
           ],
@@ -1194,9 +1223,11 @@ class _LiveKitVoiceAssistantScreenState
         children: [
           const Column(
             children: [
-              Text('Voice Agent', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Voice Agent',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 2),
-              Text('LiveKit realtime assistant', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('LiveKit realtime assistant',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
           _buildVoiceModeOrb(
@@ -1210,7 +1241,9 @@ class _LiveKitVoiceAssistantScreenState
             children: [
               Text(
                 active ? _stateLabel : 'Tap to Start',
-                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? color : Colors.black87),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1247,9 +1280,11 @@ class _LiveKitVoiceAssistantScreenState
         children: [
           const Column(
             children: [
-              Text('Token Saver', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Token Saver',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 2),
-              Text('On-device STT/TTS • secure text socket', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('On-device STT/TTS • secure text socket',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
           _buildVoiceModeOrb(
@@ -1266,11 +1301,15 @@ class _LiveKitVoiceAssistantScreenState
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? color : Colors.black87),
               ),
               const SizedBox(height: 5),
               Text(
-                _tokenSaverTranscript.isEmpty ? 'Your live transcript will appear here.' : _tokenSaverTranscript,
+                _tokenSaverTranscript.isEmpty
+                    ? 'Your live transcript will appear here.'
+                    : _tokenSaverTranscript,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1289,7 +1328,11 @@ class _LiveKitVoiceAssistantScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(mode.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text(mode.title,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey)),
           Container(
             width: 112,
             height: 112,
@@ -1298,17 +1341,27 @@ class _LiveKitVoiceAssistantScreenState
               color: Colors.grey.shade200,
               border: Border.all(color: Colors.grey.shade300),
             ),
-            child: const Icon(Icons.mic_none_rounded, color: Colors.grey, size: 46),
+            child: const Icon(Icons.mic_none_rounded,
+                color: Colors.grey, size: 46),
           ),
           Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(99)),
-                child: const Text('UNDER DEVELOPMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(99)),
+                child: const Text('UNDER DEVELOPMENT',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey)),
               ),
               const SizedBox(height: 7),
-              Text(mode.description, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(mode.description,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ],
@@ -1327,16 +1380,20 @@ class _LiveKitVoiceAssistantScreenState
         children: [
           const Column(
             children: [
-              Text('Long Bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Long Bill',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 2),
-              Text('Speak the full bill, then stop to review it', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('Speak the full bill, then stop to review it',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
           _buildVoiceModeOrb(
             active: active,
             audioLevel: _longBillAudioLevel,
             activeColor: color,
-            icon: _isLongBillSubmitting ? Icons.hourglass_top_rounded : (recording ? Icons.stop_rounded : Icons.mic),
+            icon: _isLongBillSubmitting
+                ? Icons.hourglass_top_rounded
+                : (recording ? Icons.stop_rounded : Icons.mic),
             onTap: _isLongBillSubmitting ? null : _toggleLongBillRecording,
           ),
           Column(
@@ -1346,11 +1403,15 @@ class _LiveKitVoiceAssistantScreenState
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w700, color: active ? color : Colors.black87),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? color : Colors.black87),
               ),
               const SizedBox(height: 5),
               Text(
-                _longBillTranscript.isEmpty ? 'Your live transcript will appear here.' : _longBillTranscript,
+                _longBillTranscript.isEmpty
+                    ? 'Your live transcript will appear here.'
+                    : _longBillTranscript,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1365,7 +1426,8 @@ class _LiveKitVoiceAssistantScreenState
 
   Widget _buildVoiceModeDots() {
     return Semantics(
-      label: '${VoiceMode.values[_voiceModeIndex].title} mode selected. Swipe left or right to change mode.',
+      label:
+          '${VoiceMode.values[_voiceModeIndex].title} mode selected. Swipe left or right to change mode.',
       child: ExcludeSemantics(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1390,7 +1452,7 @@ class _LiveKitVoiceAssistantScreenState
   @override
   Widget build(BuildContext context) {
     final gstProvider = context.watch<GstProvider>();
-    
+
     return Consumer<BillProvider>(
       builder: (context, billProvider, child) {
         final currentBill = billProvider.currentBillItems;
@@ -1449,7 +1511,8 @@ class _LiveKitVoiceAssistantScreenState
                                 children: [
                                   _buildLiveKitModePanel(),
                                   _buildTokenSaverModePanel(),
-                                  _buildUnavailableModePanel(VoiceMode.offlineAgent),
+                                  _buildUnavailableModePanel(
+                                      VoiceMode.offlineAgent),
                                   _buildLongBillModePanel(),
                                 ],
                               ),
@@ -1492,13 +1555,15 @@ class _LiveKitVoiceAssistantScreenState
                                       const SizedBox(width: 10),
                                       Semantics(
                                         button: true,
-                                        label: gstProvider.isCurrentBillGstEnabled
-                                            ? 'Turn off GST invoice mode'
-                                            : 'Turn on GST invoice mode',
+                                        label:
+                                            gstProvider.isCurrentBillGstEnabled
+                                                ? 'Turn off GST invoice mode'
+                                                : 'Turn on GST invoice mode',
                                         child: GestureDetector(
                                           onTap: () => gstProvider
                                               .setCurrentBillGstEnabled(
-                                            !gstProvider.isCurrentBillGstEnabled,
+                                            !gstProvider
+                                                .isCurrentBillGstEnabled,
                                           ),
                                           child: AnimatedContainer(
                                             duration: const Duration(
@@ -1705,7 +1770,8 @@ class _LiveKitVoiceAssistantScreenState
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                   border: Border.all(
-                                                    color: AppColors.primaryGreen
+                                                    color: AppColors
+                                                        .primaryGreen
                                                         .withOpacity(0.3),
                                                     style: BorderStyle.solid,
                                                   ),
@@ -1761,15 +1827,14 @@ class _LiveKitVoiceAssistantScreenState
                                               Expanded(
                                                 flex: 4,
                                                 child: TextField(
-                                                  controller:
-                                                      TextEditingController(
-                                                          text: item['name'])
-                                                        ..selection =
-                                                            TextSelection.collapsed(
-                                                                offset: (item['name']
-                                                                            ?.toString() ??
-                                                                        '')
-                                                                    .length),
+                                                  controller: TextEditingController(
+                                                      text: item['name'])
+                                                    ..selection =
+                                                        TextSelection.collapsed(
+                                                            offset: (item['name']
+                                                                        ?.toString() ??
+                                                                    '')
+                                                                .length),
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -1781,7 +1846,8 @@ class _LiveKitVoiceAssistantScreenState
                                                         EdgeInsets.symmetric(
                                                             vertical: 8,
                                                             horizontal: 4),
-                                                    border: OutlineInputBorder(),
+                                                    border:
+                                                        OutlineInputBorder(),
                                                   ),
                                                   onChanged: (value) =>
                                                       _updateBillItem(
@@ -1812,7 +1878,8 @@ class _LiveKitVoiceAssistantScreenState
                                                         EdgeInsets.symmetric(
                                                             vertical: 8,
                                                             horizontal: 2),
-                                                    border: OutlineInputBorder(),
+                                                    border:
+                                                        OutlineInputBorder(),
                                                   ),
                                                   onChanged: (value) {
                                                     final unit = _extractUnit(
@@ -1909,7 +1976,8 @@ class _LiveKitVoiceAssistantScreenState
                                                               child: const Icon(
                                                                 Icons.remove,
                                                                 size: 16,
-                                                                color: Colors.red,
+                                                                color:
+                                                                    Colors.red,
                                                               ),
                                                             ),
                                                           ),
@@ -1933,8 +2001,8 @@ class _LiveKitVoiceAssistantScreenState
                                                                 ),
                                                                 Text(
                                                                   _formatRateWithUnit(
-                                                                    _asDouble(
-                                                                        item['rate']),
+                                                                    _asDouble(item[
+                                                                        'rate']),
                                                                     item['qty_display']
                                                                             ?.toString() ??
                                                                         '1kg',
@@ -1970,7 +2038,8 @@ class _LiveKitVoiceAssistantScreenState
                                                             child: Text(
                                                               '${_formatNumber(_asDouble(item['gst_rate']))}%\nTax Rs ${_formatNumber(_gstLineTax(item))}',
                                                               textAlign:
-                                                                  TextAlign.right,
+                                                                  TextAlign
+                                                                      .right,
                                                               style:
                                                                   const TextStyle(
                                                                       fontSize:
@@ -1982,13 +2051,13 @@ class _LiveKitVoiceAssistantScreenState
                                                             child: Text(
                                                               'Rs ${_formatNumber(_gstLineTotal(item))}',
                                                               textAlign:
-                                                                  TextAlign.right,
+                                                                  TextAlign
+                                                                      .right,
                                                               style: const TextStyle(
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .bold,
-                                                                  fontSize:
-                                                                      13),
+                                                                  fontSize: 13),
                                                             ),
                                                           ),
                                                         ]),
@@ -2028,11 +2097,12 @@ class _LiveKitVoiceAssistantScreenState
                                                           item['name']
                                                                   ?.toString() ??
                                                               'Item',
-                                                          style: const TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 14),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontSize: 14),
                                                         ),
                                                       ),
                                                       Expanded(
@@ -2073,11 +2143,12 @@ class _LiveKitVoiceAssistantScreenState
                                                           "₹${_formatNumber(_asDouble(item['total']))}",
                                                           textAlign:
                                                               TextAlign.right,
-                                                          style: const TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              fontSize: 14),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 14),
                                                         ),
                                                       ),
                                                     ]),

@@ -60,8 +60,8 @@ class DoctorPrescriptionPrinterService {
                       ? doctor.doctorName.trim()
                       : 'Dr. ${doctor.doctorName.trim().isEmpty ? 'Doctor' : doctor.doctorName.trim()}',
                   textAlign: pw.TextAlign.center,
-                  style:
-                      pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 10, fontWeight: pw.FontWeight.bold),
                 ),
               ),
               if (doctor.qualifications.trim().isNotEmpty)
@@ -92,7 +92,11 @@ class DoctorPrescriptionPrinterService {
                 ),
               pw.Divider(thickness: 1.0),
               _line('Date', _dateTime(draft.prescribedAt)),
-              _line('Patient', draft.patientName.isEmpty ? 'General Patient' : draft.patientName),
+              _line(
+                  'Patient',
+                  draft.patientName.isEmpty
+                      ? 'General Patient'
+                      : draft.patientName),
               if (draft.patientAge != null ||
                   draft.patientGender.trim().isNotEmpty)
                 _line(
@@ -197,8 +201,8 @@ class DoctorPrescriptionPrinterService {
           children: [
             pw.TextSpan(
                 text: '$label: ',
-                style:
-                    pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+                style: pw.TextStyle(
+                    fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
             pw.TextSpan(text: value, style: const pw.TextStyle(fontSize: 7.5)),
           ],
         ),
@@ -209,10 +213,14 @@ class DoctorPrescriptionPrinterService {
   List<pw.Widget> _medicineLines(PrescriptionMedication medication) {
     final details = <String>[
       if (medication.dose.trim().isNotEmpty) 'Dose: ${medication.dose.trim()}',
-      if (medication.frequency.trim().isNotEmpty) 'Freq: ${medication.frequency.trim()}',
-      if (medication.duration.trim().isNotEmpty) 'Duration: ${medication.duration.trim()}',
-      if (medication.timing.trim().isNotEmpty) 'When: ${medication.timing.trim()}',
-      if (medication.route.trim().isNotEmpty && medication.route.trim().toLowerCase() != 'oral')
+      if (medication.frequency.trim().isNotEmpty)
+        'Freq: ${medication.frequency.trim()}',
+      if (medication.duration.trim().isNotEmpty)
+        'Duration: ${medication.duration.trim()}',
+      if (medication.timing.trim().isNotEmpty)
+        'When: ${medication.timing.trim()}',
+      if (medication.route.trim().isNotEmpty &&
+          medication.route.trim().toLowerCase() != 'oral')
         'Route: ${medication.route.trim()}',
     ];
     final widgets = <pw.Widget>[];

@@ -196,7 +196,6 @@ class CategoryExperience {
   };
 }
 
-
 /// A workspace configuration for category-specific operational pages.
 class CategoryWorkspace {
   final String title;

@@ -17,7 +17,8 @@ class WorkflowDraftService {
       '/workflows/bill-drafts/$draftId/confirm',
       {
         'expected_version': version,
-        if (verifiedCustomerId != null) 'verified_customer_id': verifiedCustomerId,
+        if (verifiedCustomerId != null)
+          'verified_customer_id': verifiedCustomerId,
       },
       extraHeaders: {'Idempotency-Key': const Uuid().v4()},
     );

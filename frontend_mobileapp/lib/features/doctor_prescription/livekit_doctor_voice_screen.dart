@@ -22,7 +22,8 @@ class LiveKitDoctorVoiceScreen extends StatefulWidget {
   });
 
   @override
-  State<LiveKitDoctorVoiceScreen> createState() => _LiveKitDoctorVoiceScreenState();
+  State<LiveKitDoctorVoiceScreen> createState() =>
+      _LiveKitDoctorVoiceScreenState();
 }
 
 class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
@@ -103,7 +104,8 @@ class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
         break;
       case 'agent_state':
         final state = event.payload['state']?.toString();
-        if (state != null && state.isNotEmpty) setState(() => _status = state.toUpperCase());
+        if (state != null && state.isNotEmpty)
+          setState(() => _status = state.toUpperCase());
         break;
       case 'prescription_draft':
         _openDraft(event.payload);
@@ -127,7 +129,8 @@ class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
     try {
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => PrescriptionPreviewScreen(
-          initialDraft: PrescriptionDraft.fromVoiceJson(Map<String, dynamic>.from(rawDraft)),
+          initialDraft: PrescriptionDraft.fromVoiceJson(
+              Map<String, dynamic>.from(rawDraft)),
           shopDetails: widget.shopDetails,
           isPrinterConnected: widget.isPrinterConnected,
           togglePrinter: widget.togglePrinter,
@@ -147,16 +150,24 @@ class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textBlack,
         elevation: 0,
-        title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Prescription Voice', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-          Text('Secure clinical dictation', style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
-        ]),
+        title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Prescription Voice',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              Text('Secure clinical dictation',
+                  style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
+            ]),
         actions: [
           IconButton(
-            tooltip: widget.isPrinterConnected ? 'Printer connected' : 'Connect printer',
+            tooltip: widget.isPrinterConnected
+                ? 'Printer connected'
+                : 'Connect printer',
             onPressed: widget.togglePrinter,
             icon: Icon(Icons.print_rounded,
-                color: widget.isPrinterConnected ? AppColors.printerConnected : AppColors.printerDisconnected),
+                color: widget.isPrinterConnected
+                    ? AppColors.printerConnected
+                    : AppColors.printerDisconnected),
           ),
         ],
       ),
@@ -181,15 +192,24 @@ class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
                     shape: BoxShape.circle,
                     color: active ? Colors.teal.shade600 : Colors.white,
                     border: Border.all(color: Colors.teal.shade600, width: 3),
-                    boxShadow: [BoxShadow(color: Colors.teal.withValues(alpha: .2), blurRadius: 28, spreadRadius: 5)],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.teal.withValues(alpha: .2),
+                          blurRadius: 28,
+                          spreadRadius: 5)
+                    ],
                   ),
-                  child: Icon(active ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-                      size: 62, color: active ? Colors.white : Colors.teal.shade600),
+                  child: Icon(
+                      active ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+                      size: 62,
+                      color: active ? Colors.white : Colors.teal.shade600),
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            Text(_status, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: .8)),
+            Text(_status,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800, letterSpacing: .8)),
             const SizedBox(height: 32),
             Container(
               width: double.infinity,
@@ -201,12 +221,19 @@ class _LiveKitDoctorVoiceScreenState extends State<LiveKitDoctorVoiceScreen>
                 border: Border.all(color: Colors.teal.withValues(alpha: .25)),
               ),
               child: Text(
-                _transcript.isEmpty ? 'Your live dictation will appear here.' : _transcript,
-                style: TextStyle(color: _transcript.isEmpty ? AppColors.textGrey : AppColors.textBlack, height: 1.4),
+                _transcript.isEmpty
+                    ? 'Your live dictation will appear here.'
+                    : _transcript,
+                style: TextStyle(
+                    color: _transcript.isEmpty
+                        ? AppColors.textGrey
+                        : AppColors.textBlack,
+                    height: 1.4),
               ),
             ),
             const Spacer(),
-            Text(active ? 'Tap to end dictation' : 'Tap the microphone to start',
+            Text(
+                active ? 'Tap to end dictation' : 'Tap the microphone to start',
                 style: const TextStyle(color: AppColors.textGrey)),
           ]),
         ),

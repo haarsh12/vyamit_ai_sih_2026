@@ -46,10 +46,10 @@ class _BillShareModalState extends State<BillShareModal> {
     super.initState();
     _customerService = CustomerService(ApiClient());
     _customerNameController = TextEditingController(
-      text: widget.customerName != null && !_isGenericName(widget.customerName!) 
-          ? widget.customerName
-          : 'Walk-in'
-    );
+        text:
+            widget.customerName != null && !_isGenericName(widget.customerName!)
+                ? widget.customerName
+                : 'Walk-in');
   }
 
   bool _isGenericName(String name) {
@@ -90,7 +90,7 @@ class _BillShareModalState extends State<BillShareModal> {
     }
 
     final buffer = StringBuffer();
-    
+
     // Header with real shop details
     buffer.writeln('🧾 *VYAMIT AI RECEIPT*');
     buffer.writeln('');
@@ -102,18 +102,21 @@ class _BillShareModalState extends State<BillShareModal> {
     }
     buffer.writeln('');
     buffer.writeln('Customer: ${_customerNameController.text}');
-    
+
     // Date and Time
     final now = DateTime.now();
-    final date = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final date =
+        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+    final hour =
+        now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
     final ampm = now.hour >= 12 ? 'PM' : 'AM';
-    final time = '${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} $ampm';
-    
+    final time =
+        '${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} $ampm';
+
     buffer.writeln('Date: $date');
     buffer.writeln('Time: $time');
     buffer.writeln('--------------------------------');
-    
+
     // Column Headers
     buffer.writeln(formatRow('Item', 'Qty', 'Rate', 'Amt'));
     buffer.writeln('--------------------------------');
@@ -158,7 +161,8 @@ class _BillShareModalState extends State<BillShareModal> {
 
   List<Map<String, dynamic>> _billItemsForApi() {
     return widget.billItems.map((item) {
-      final quantity = _asNumber(item['quantity'] ?? item['qty'] ?? item['qty_display']);
+      final quantity =
+          _asNumber(item['quantity'] ?? item['qty'] ?? item['qty_display']);
       final safeQuantity = quantity > 0 ? quantity : 1.0;
       final price = _asNumber(item['price'] ?? item['rate']);
       final total = double.parse((safeQuantity * price).toStringAsFixed(2));
@@ -218,7 +222,8 @@ class _BillShareModalState extends State<BillShareModal> {
       return true;
     } catch (error) {
       if (mounted) {
-        _showError('Virtual bill saved, but customer verification failed: $error');
+        _showError(
+            'Virtual bill saved, but customer verification failed: $error');
       }
       return false;
     }
@@ -270,7 +275,8 @@ class _BillShareModalState extends State<BillShareModal> {
 
       final billId = await _saveVirtualBill();
       if (billId == null) {
-        _showError('The $channel bill was opened but could not be saved to history.');
+        _showError(
+            'The $channel bill was opened but could not be saved to history.');
         return;
       }
 
@@ -319,16 +325,17 @@ class _BillShareModalState extends State<BillShareModal> {
 
     // Format: sms:<number>?body=<message>
     final cleanMobile = mobile.replaceAll('+', '').replaceAll(' ', '');
-    final formattedMobile = cleanMobile.startsWith('91') ? cleanMobile : '91$cleanMobile';
+    final formattedMobile =
+        cleanMobile.startsWith('91') ? cleanMobile : '91$cleanMobile';
 
     // Use SMS scheme to open device SMS app
     final smsUrl = 'sms:+$formattedMobile?body=$encodedText';
 
     try {
       final uri = Uri.parse(smsUrl);
-      
+
       print('🔍 Trying to launch SMS: $smsUrl');
-      
+
       if (await canLaunchUrl(uri)) {
         await _completeVirtualShare(
           () => launchUrl(uri),
@@ -356,18 +363,20 @@ class _BillShareModalState extends State<BillShareModal> {
 
     // Format: Remove +91 prefix, WhatsApp handles it
     final cleanMobile = mobile.replaceAll('+', '').replaceAll(' ', '');
-    final formattedMobile = cleanMobile.startsWith('91') ? cleanMobile : '91$cleanMobile';
+    final formattedMobile =
+        cleanMobile.startsWith('91') ? cleanMobile : '91$cleanMobile';
 
     // Use whatsapp:// scheme for better app detection
-    final whatsappUrl = 'whatsapp://send?phone=$formattedMobile&text=$encodedText';
+    final whatsappUrl =
+        'whatsapp://send?phone=$formattedMobile&text=$encodedText';
 
     try {
       final uri = Uri.parse(whatsappUrl);
       final canLaunch = await canLaunchUrl(uri);
-      
+
       print('🔍 Trying to launch: $whatsappUrl');
       print('🔍 Can launch: $canLaunch');
-      
+
       if (canLaunch) {
         await _completeVirtualShare(
           () => launchUrl(uri, mode: LaunchMode.externalApplication),
@@ -377,7 +386,7 @@ class _BillShareModalState extends State<BillShareModal> {
         // Fallback to https URL
         final fallbackUrl = 'https://wa.me/$formattedMobile?text=$encodedText';
         final fallbackUri = Uri.parse(fallbackUrl);
-        
+
         if (await canLaunchUrl(fallbackUri)) {
           await _completeVirtualShare(
             () => launchUrl(fallbackUri, mode: LaunchMode.externalApplication),
@@ -492,11 +501,13 @@ class _BillShareModalState extends State<BillShareModal> {
                               fillColor: Colors.grey[50],
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -528,11 +539,13 @@ class _BillShareModalState extends State<BillShareModal> {
                               fillColor: Colors.grey[50],
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                                borderSide:
+                                    BorderSide(color: Colors.grey[300]!),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,

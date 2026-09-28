@@ -22,7 +22,8 @@ class AuthTokenStore {
     return legacyToken;
   }
 
-  Future<void> write(String token) => _secureStorage.write(key: _key, value: token);
+  Future<void> write(String token) =>
+      _secureStorage.write(key: _key, value: token);
 
   Future<void> delete() => _secureStorage.delete(key: _key);
 }

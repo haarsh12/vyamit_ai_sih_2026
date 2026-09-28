@@ -11,13 +11,11 @@ class BillTypeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVirtual = billType == 'virtual';
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isVirtual 
-            ? Colors.blue.shade100 
-            : Colors.green.shade100,
+        color: isVirtual ? Colors.blue.shade100 : Colors.green.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -25,9 +23,7 @@ class BillTypeBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.bold,
-          color: isVirtual 
-              ? Colors.blue.shade700 
-              : Colors.green.shade700,
+          color: isVirtual ? Colors.blue.shade700 : Colors.green.shade700,
         ),
       ),
     );
@@ -47,7 +43,7 @@ class BillTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVirtual = billType == 'virtual';
-    
+
     return Icon(
       isVirtual ? Icons.phone_android : Icons.print,
       color: isVirtual ? Colors.blue : Colors.green,
@@ -87,7 +83,8 @@ class BillingSourceBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: isFrequent ? Colors.orange.shade800 : Colors.purple.shade700,
+              color:
+                  isFrequent ? Colors.orange.shade800 : Colors.purple.shade700,
             ),
           ),
         ],

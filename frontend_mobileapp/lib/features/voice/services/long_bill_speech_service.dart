@@ -143,7 +143,8 @@ class LongBillSpeechService {
       }
       onTranscriptChanged(_composeTranscript());
     } catch (_) {
-      onStatusChanged('Speech result could not be read. Please continue speaking.');
+      onStatusChanged(
+          'Speech result could not be read. Please continue speaking.');
     }
   }
 
@@ -164,12 +165,14 @@ class LongBillSpeechService {
     final permanent = error?.permanent == true;
     if (permanent && _preferOnDeviceRecognition) {
       _preferOnDeviceRecognition = false;
-      _scheduleRestart('Offline speech is unavailable. Using the device recognizer…');
+      _scheduleRestart(
+          'Offline speech is unavailable. Using the device recognizer…');
       return;
     }
     if (permanent) {
       _isRecording = false;
-      onStatusChanged('Speech recognition stopped. Check the on-device language setting.');
+      onStatusChanged(
+          'Speech recognition stopped. Check the on-device language setting.');
       return;
     }
     _scheduleRestart('Listening…');
@@ -219,14 +222,17 @@ class LongBillSpeechService {
         ? previousWords.length
         : nextWords.length;
     for (var overlap = maximumOverlap; overlap > 0; overlap--) {
-      final prior = previousWords.sublist(previousWords.length - overlap).join(' ');
+      final prior =
+          previousWords.sublist(previousWords.length - overlap).join(' ');
       final upcoming = nextWords.sublist(0, overlap).join(' ');
       if (_normalise(prior) == _normalise(upcoming)) {
-        return '${previous.trim()} ${nextWords.sublist(overlap).join(' ')}'.trim();
+        return '${previous.trim()} ${nextWords.sublist(overlap).join(' ')}'
+            .trim();
       }
     }
     return '${previous.trim()} ${next.trim()}';
   }
 
-  String _normalise(String value) => value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  String _normalise(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
 }

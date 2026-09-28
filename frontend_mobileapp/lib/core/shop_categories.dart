@@ -67,4 +67,3 @@ String getShopCategoryImage(String? category) {
       return 'assets/geminigrocery.png';
   }
 }
-

@@ -25,9 +25,8 @@ class DashboardData {
       peakHours: (json['peak_hours'] as List)
           .map((hour) => PeakHour.fromJson(hour))
           .toList(),
-      peakDay: json['peak_day'] != null 
-          ? PeakDay.fromJson(json['peak_day']) 
-          : null,
+      peakDay:
+          json['peak_day'] != null ? PeakDay.fromJson(json['peak_day']) : null,
     );
   }
 }

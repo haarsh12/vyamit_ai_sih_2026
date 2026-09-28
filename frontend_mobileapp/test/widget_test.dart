@@ -17,5 +17,6 @@ void main() {
 
     // Verify that the app starts
     expect(find.byType(MaterialApp), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 }

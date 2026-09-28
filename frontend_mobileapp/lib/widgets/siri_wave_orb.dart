@@ -30,35 +30,45 @@ class _SiriWaveOrbState extends State<SiriWaveOrb>
   @override
   void initState() {
     super.initState();
-    
-    // Rotation animation (continuous)
+
+    // Rotation animation (only active when listening)
     _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 20),
-    )..repeat();
-    
+    );
+    if (widget.isActive) {
+      _rotationController.repeat();
+    }
+
     // Pulse animation (for active state)
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    
+
     // Breathing animation (for idle state)
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
+    );
+    if (!widget.isActive) {
+      _breathingController.repeat(reverse: true);
+    }
   }
 
   @override
   void didUpdateWidget(SiriWaveOrb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     if (widget.isActive && !oldWidget.isActive) {
+      _breathingController.stop();
+      _rotationController.repeat();
       _pulseController.repeat(reverse: true);
     } else if (!widget.isActive && oldWidget.isActive) {
       _pulseController.stop();
       _pulseController.reset();
+      _rotationController.stop();
+      _breathingController.repeat(reverse: true);
     }
   }
 
@@ -74,24 +84,26 @@ class _SiriWaveOrbState extends State<SiriWaveOrb>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
-      child: AnimatedBuilder(
-        animation: Listenable.merge([
-          _rotationController,
-          _pulseController,
-          _breathingController,
-        ]),
-        builder: (context, child) {
-          return CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: SiriWavePainter(
-              isActive: widget.isActive,
-              audioLevel: widget.audioLevel,
-              rotation: _rotationController.value,
-              pulse: _pulseController.value,
-              breathing: _breathingController.value,
-            ),
-          );
-        },
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            _rotationController,
+            _pulseController,
+            _breathingController,
+          ]),
+          builder: (context, child) {
+            return CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: SiriWavePainter(
+                isActive: widget.isActive,
+                audioLevel: widget.audioLevel,
+                rotation: _rotationController.value,
+                pulse: _pulseController.value,
+                breathing: _breathingController.value,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -145,8 +157,8 @@ class SiriWavePainter extends CustomPainter {
     // Outer glow
     final glowPaint = Paint()
       ..color = const Color(0xFF4A5568).withOpacity(0.2)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-    
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
     canvas.drawCircle(center, radius, glowPaint);
 
     // Mic icon
@@ -197,7 +209,7 @@ class SiriWavePainter extends CustomPainter {
           Colors.transparent,
         ],
       ).createShader(Rect.fromCircle(center: center, radius: glowRadius));
-    
+
     canvas.drawCircle(center, glowRadius, glowPaint);
 
     // Outer ring glow
@@ -205,8 +217,8 @@ class SiriWavePainter extends CustomPainter {
       ..color = const Color(0xFF06B6D4).withOpacity(0.3 + audioLevel * 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
-    
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
     canvas.drawCircle(
       center,
       baseRadius * 0.7 * (1.0 + pulse * 0.1),
@@ -214,13 +226,14 @@ class SiriWavePainter extends CustomPainter {
     );
   }
 
-  void _drawBlob(Canvas canvas, Offset center, double baseRadius, _BlobConfig config) {
+  void _drawBlob(
+      Canvas canvas, Offset center, double baseRadius, _BlobConfig config) {
     // Calculate blob position
     final distance = baseRadius * config.distance;
     final x = center.dx + math.cos(config.angle) * distance;
     final y = center.dy + math.sin(config.angle) * distance;
     final blobCenter = Offset(x, y);
-    
+
     // Blob size
     final blobRadius = baseRadius * config.size;
 
@@ -236,7 +249,7 @@ class SiriWavePainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: blobCenter, radius: blobRadius));
 
     // Draw blob with blur
-    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 25);
+    paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.drawCircle(blobCenter, blobRadius, paint);
   }
 
@@ -264,7 +277,7 @@ class SiriWavePainter extends CustomPainter {
       ..lineTo(center.dx, center.dy + size * 0.6)
       ..moveTo(center.dx - size * 0.25, center.dy + size * 0.6)
       ..lineTo(center.dx + size * 0.25, center.dy + size * 0.6);
-    
+
     canvas.drawPath(standPath, paint);
 
     // Mic arc (sound waves)
@@ -273,7 +286,7 @@ class SiriWavePainter extends CustomPainter {
       width: size * 0.9,
       height: size * 0.9,
     );
-    
+
     canvas.drawArc(
       arcRect,
       math.pi * 0.2,

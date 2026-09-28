@@ -53,19 +53,23 @@ class FrequentBillingScreen extends StatefulWidget {
   State<FrequentBillingScreen> createState() => _FrequentBillingScreenState();
 }
 
-class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
+class _FrequentBillingScreenState extends State<FrequentBillingScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final List<BillItem> _currentBill = [];
   final Map<String, int> _itemCounts = {};
-  
+
   // Edit Mode State
   bool _isEditMode = false;
-  
+
   // View toggle - true = show bill, false = show items
   bool _showBillView = false;
 
   // Standard units for the dropdown
   final List<String> _unitOptions = ['kg', 'pics', 'dozen', 'plate', 'other'];
-  
+
   // Category Management. The shortcuts passed by HomeScreen are already
   // isolated by shop category, so derive tabs from those shortcuts instead of
   // showing the previous business type's hard-coded groups.
@@ -206,7 +210,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
     widget.onBillFinalized(billData);
     _resetBill();
   }
-  
+
   // Show FAB only when items selected and not in bill view
   bool _shouldShowFAB() {
     return !_showBillView && _currentBill.isNotEmpty;
@@ -235,7 +239,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
         customUnitController.text = item.unit;
       }
     }
-    
+
     // Category Logic
     String selectedCategory = isEdit ? item.category : _selectedCategory;
     final customCategoryController = TextEditingController();
@@ -246,7 +250,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Text(isEdit ? "Edit Item" : "Add Frequent Item"),
             content: SingleChildScrollView(
               child: Column(
@@ -255,12 +260,16 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                 children: [
                   // Category Dropdown
                   DropdownButtonFormField<String>(
-                    value: _categories.contains(selectedCategory) ? selectedCategory : _categories[0],
+                    value: _categories.contains(selectedCategory)
+                        ? selectedCategory
+                        : _categories[0],
                     decoration: const InputDecoration(labelText: "Category"),
                     isExpanded: true,
                     items: [
-                      ..._categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                      const DropdownMenuItem(value: '__NEW__', child: Text('+ New Category')),
+                      ..._categories.map(
+                          (c) => DropdownMenuItem(value: c, child: Text(c))),
+                      const DropdownMenuItem(
+                          value: '__NEW__', child: Text('+ New Category')),
                     ],
                     onChanged: (val) {
                       setDialogState(() {
@@ -350,10 +359,12 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: currentImageUrl != null && currentImageUrl!.isNotEmpty
+                            child: currentImageUrl != null &&
+                                    currentImageUrl!.isNotEmpty
                                 ? _buildDialogImagePreview(currentImageUrl!)
                                 : const Center(
-                                    child: Icon(Icons.image_outlined, color: Colors.grey, size: 28),
+                                    child: Icon(Icons.image_outlined,
+                                        color: Colors.grey, size: 28),
                                   ),
                           ),
                         ),
@@ -383,36 +394,47 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                                         });
                                       });
                                     },
-                                    icon: const Icon(Icons.add_a_photo, size: 13),
+                                    icon:
+                                        const Icon(Icons.add_a_photo, size: 13),
                                     label: Text(
-                                      currentImageUrl == null ? "Upload Image" : "Change",
+                                      currentImageUrl == null
+                                          ? "Upload Image"
+                                          : "Change",
                                       style: const TextStyle(fontSize: 11),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.primaryGreen,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
                                       minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                     ),
                                   ),
-                                  if (currentImageUrl != null && currentImageUrl!.isNotEmpty)
+                                  if (currentImageUrl != null &&
+                                      currentImageUrl!.isNotEmpty)
                                     OutlinedButton.icon(
                                       onPressed: () {
                                         setDialogState(() {
                                           currentImageUrl = null;
                                         });
                                       },
-                                      icon: const Icon(Icons.delete_outline, size: 13, color: Colors.red),
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 13, color: Colors.red),
                                       label: const Text(
                                         "Delete",
-                                        style: TextStyle(fontSize: 11, color: Colors.red),
+                                        style: TextStyle(
+                                            fontSize: 11, color: Colors.red),
                                       ),
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Colors.red),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                        side:
+                                            const BorderSide(color: Colors.red),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 6),
                                         minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
                                     ),
                                 ],
@@ -461,10 +483,11 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                       finalUnit = customUnitController.text.trim();
                       if (finalUnit.isEmpty) finalUnit = 'unit'; // Fallback
                     }
-                    
+
                     // Determine final category
                     String finalCategory = selectedCategory;
-                    if (isCustomCategory && customCategoryController.text.trim().isNotEmpty) {
+                    if (isCustomCategory &&
+                        customCategoryController.text.trim().isNotEmpty) {
                       finalCategory = customCategoryController.text.trim();
                       // Add new category to list
                       if (!_categories.contains(finalCategory)) {
@@ -521,13 +544,13 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
     }
     return value.toString();
   }
-  
+
   // Helper: Extract numeric quantity from qtyDisplay (e.g., "2kg" -> "2")
   String _extractQuantityNumber(String qtyDisplay) {
     final numericPart = qtyDisplay.replaceAll(RegExp(r'[^0-9.]'), '');
     return numericPart.isEmpty ? '1' : numericPart;
   }
-  
+
   // Helper: Format rate with unit (e.g., rate=30, unit="plt" -> "₹30/plt")
   String _formatRateWithUnit(double rate, String unit) {
     return '₹${_formatNumber(rate)}/${_getShortUnit(unit)}';
@@ -552,7 +575,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
         total: 0.0,
         unit: 'kg',
       ));
-      
+
       if (!_isEditMode) {
         _isEditMode = true;
       }
@@ -562,7 +585,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
   void _updateBillItem(int index, String field, String value) {
     setState(() {
       BillItem oldItem = _currentBill[index];
-      
+
       if (field == 'name') {
         _currentBill[index] = BillItem(
           name: value,
@@ -576,7 +599,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
         final numericQty = value.replaceAll(RegExp(r'[^0-9.]'), '');
         final qty = double.tryParse(numericQty) ?? 1.0;
         final newTotal = oldItem.rate * qty;
-        
+
         _currentBill[index] = BillItem(
           name: oldItem.name,
           qtyDisplay: value,
@@ -589,7 +612,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
         final qtyStr = oldItem.qtyDisplay.replaceAll(RegExp(r'[^0-9.]'), '');
         final qty = double.tryParse(qtyStr) ?? 1.0;
         final newTotal = newRate * qty;
-        
+
         _currentBill[index] = BillItem(
           name: oldItem.name,
           qtyDisplay: oldItem.qtyDisplay,
@@ -615,7 +638,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       };
     }).toList();
 
-    final totalAmount = _currentBill.fold<double>(0, (sum, item) => sum + item.total);
+    final totalAmount =
+        _currentBill.fold<double>(0, (sum, item) => sum + item.total);
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -630,10 +654,10 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       ),
     );
   }
-  
+
   void _showAddCategoryDialog() {
     final categoryNameCtrl = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -661,7 +685,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("Category '${categoryNameCtrl.text.trim()}' added"),
+                    content: Text(
+                        "Category '${categoryNameCtrl.text.trim()}' added"),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -677,10 +702,11 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       ),
     );
   }
-  
+
   void _showDeleteCategoryDialog(String categoryName) {
-    final itemCount = widget.frequentItems.where((i) => i.category == categoryName).length;
-    
+    final itemCount =
+        widget.frequentItems.where((i) => i.category == categoryName).length;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -701,18 +727,19 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
               final itemsToDelete = widget.frequentItems
                   .where((i) => i.category == categoryName)
                   .toList();
-              
+
               for (var item in itemsToDelete) {
                 widget.onDelete(item.id);
               }
-              
+
               setState(() {
                 _categories.remove(categoryName);
-                if (_selectedCategory == categoryName && _categories.isNotEmpty) {
+                if (_selectedCategory == categoryName &&
+                    _categories.isNotEmpty) {
                   _selectedCategory = _categories.first;
                 }
               });
-              
+
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -731,7 +758,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       ),
     );
   }
-  
+
   List<Item> _getFilteredItems() {
     return widget.frequentItems
         .where((item) => item.category == _selectedCategory)
@@ -763,7 +790,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library_rounded, color: AppColors.primaryGreen),
+              leading: const Icon(Icons.photo_library_rounded,
+                  color: AppColors.primaryGreen),
               title: const Text("Choose from Gallery"),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -783,7 +811,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primaryGreen),
+              leading: const Icon(Icons.camera_alt_rounded,
+                  color: AppColors.primaryGreen),
               title: const Text("Take a Photo"),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -810,13 +839,22 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
 
   Widget _buildDialogImagePreview(String url) {
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      return Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey));
+      return Image.network(url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.broken_image, color: Colors.grey));
     } else if (url.startsWith('assets/')) {
-      return Image.asset(url, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey));
+      return Image.asset(url,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.broken_image, color: Colors.grey));
     } else {
       final file = File(url);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey));
+        return Image.file(file,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.broken_image, color: Colors.grey));
       }
     }
     return const Icon(Icons.image_not_supported_outlined, color: Colors.grey);
@@ -831,7 +869,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (context, error, stackTrace) => _buildDefaultImagePlaceholder(item),
+          errorBuilder: (context, error, stackTrace) =>
+              _buildDefaultImagePlaceholder(item),
         );
       } else if (url.startsWith('assets/')) {
         return Padding(
@@ -841,20 +880,19 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
             fit: BoxFit.contain,
             width: double.infinity,
             height: double.infinity,
-            errorBuilder: (context, error, stackTrace) => _buildDefaultImagePlaceholder(item),
+            errorBuilder: (context, error, stackTrace) =>
+                _buildDefaultImagePlaceholder(item),
           ),
         );
       } else {
-        final file = File(url);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (context, error, stackTrace) => _buildDefaultImagePlaceholder(item),
-          );
-        }
+        return Image.file(
+          File(url),
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildDefaultImagePlaceholder(item),
+        );
       }
     }
     return _buildDefaultImagePlaceholder(item);
@@ -876,11 +914,16 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       iconData = Icons.lunch_dining_rounded;
       iconColor = const Color(0xFFD97706);
       bgColor = const Color(0xFFFEF3C7);
-    } else if (catLower.contains('beverage') || nameLower.contains('tea') || nameLower.contains('coffee') || nameLower.contains('drink')) {
+    } else if (catLower.contains('beverage') ||
+        nameLower.contains('tea') ||
+        nameLower.contains('coffee') ||
+        nameLower.contains('drink')) {
       iconData = Icons.local_cafe_rounded;
       iconColor = const Color(0xFF7C3AED);
       bgColor = const Color(0xFFF3E8FF);
-    } else if (catLower.contains('ice cream') || nameLower.contains('ice cream') || nameLower.contains('kulfi')) {
+    } else if (catLower.contains('ice cream') ||
+        nameLower.contains('ice cream') ||
+        nameLower.contains('kulfi')) {
       iconData = Icons.icecream_rounded;
       iconColor = const Color(0xFFEC4899);
       bgColor = const Color(0xFFFCE7F3);
@@ -892,7 +935,9 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       iconData = Icons.egg_alt_rounded;
       iconColor = const Color(0xFF0288D1);
       bgColor = const Color(0xFFE1F5FE);
-    } else if (catLower.contains('kirana') || catLower.contains('grocery') || catLower.contains('anaaj')) {
+    } else if (catLower.contains('kirana') ||
+        catLower.contains('grocery') ||
+        catLower.contains('anaaj')) {
       iconData = Icons.shopping_basket_rounded;
       iconColor = const Color(0xFF16A34A);
       bgColor = const Color(0xFFDCFCE7);
@@ -909,9 +954,11 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       ),
     );
   }
-  
+
   // Build items selection view (full screen, 2 per row)
   Widget _buildItemsView() {
+    final filteredItems = _getFilteredItems();
+
     return Column(
       children: [
         // Category Bar
@@ -920,6 +967,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
             itemCount: _categories.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
@@ -927,23 +976,27 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                 return GestureDetector(
                   onTap: _showAddCategoryDialog,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.5)),
+                      border: Border.all(
+                          color: AppColors.primaryGreen.withOpacity(0.5)),
                     ),
                     child: const Center(
-                      child: Icon(Icons.add, size: 30, color: AppColors.primaryGreen),
+                      child: Icon(Icons.add,
+                          size: 30, color: AppColors.primaryGreen),
                     ),
                   ),
                 );
               }
-              
+
               final cat = _categories[index];
               final isSelected = _selectedCategory == cat;
-              final itemCount = widget.frequentItems.where((i) => i.category == cat).length;
-              
+              final itemCount =
+                  widget.frequentItems.where((i) => i.category == cat).length;
+
               return GestureDetector(
                 onTap: () {
                   setState(() {
@@ -952,21 +1005,26 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                 },
                 onLongPress: () => _showDeleteCategoryDialog(cat),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primaryGreen : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300,
+                      color: isSelected
+                          ? AppColors.primaryGreen
+                          : Colors.grey.shade300,
                       width: 2,
                     ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(
-                        color: AppColors.primaryGreen.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      )
-                    ] : null,
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primaryGreen.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            )
+                          ]
+                        : null,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -986,7 +1044,9 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                       Text(
                         '$itemCount items',
                         style: TextStyle(
-                          color: isSelected ? Colors.white.withOpacity(0.9) : Colors.grey,
+                          color: isSelected
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.grey,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -998,194 +1058,207 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
             },
           ),
         ),
-        
+
         const SizedBox(height: 10),
-        
+
         // Items Grid (2 per row, tall rectangular cards with images, vertical scroll)
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: GridView.builder(
               padding: const EdgeInsets.only(bottom: 100),
+              physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics()),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 0.76, // Taller rectangular card layout
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
               ),
-              itemCount: _getFilteredItems().length,
+              itemCount: filteredItems.length,
               itemBuilder: (context, index) {
-                final item = _getFilteredItems()[index];
+                final item = filteredItems[index];
                 final count = _itemCounts[item.id] ?? 0;
                 final isSelected = count > 0;
 
-                return GestureDetector(
-                  onTap: () => _handleItemTap(item),
-                  onLongPress: () => _showFrequentItemDialog(item: item),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFF0FDF4) : Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primaryGreen
-                            : const Color(0xFFE2E8F0),
-                        width: isSelected ? 2 : 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
+                return RepaintBoundary(
+                  child: GestureDetector(
+                    onTap: () => _handleItemTap(item),
+                    onLongPress: () => _showFrequentItemDialog(item: item),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? const Color(0xFFF0FDF4) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
                           color: isSelected
-                              ? AppColors.primaryGreen.withOpacity(0.18)
-                              : Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Curved Square / Rectangular Image Box (Top Portion)
-                        Expanded(
-                          flex: 6,
-                          child: Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              color: const Color(0xFFF8FAFC),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: _buildItemImage(item),
-                                  ),
-                                  if (isSelected)
-                                    Positioned(
-                                      top: 6,
-                                      right: 6,
-                                      child: Container(
-                                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primaryGreen,
-                                          borderRadius: BorderRadius.circular(12),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.2),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            '$count',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 12,
+                              ? AppColors.primaryGreen
+                              : const Color(0xFFE2E8F0),
+                          width: isSelected ? 2 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isSelected
+                                ? AppColors.primaryGreen.withOpacity(0.18)
+                                : Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Curved Square / Rectangular Image Box (Top Portion)
+                          Expanded(
+                            flex: 6,
+                            child: Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                color: const Color(0xFFF8FAFC),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: _buildItemImage(item),
+                                    ),
+                                    if (isSelected)
+                                      Positioned(
+                                        top: 6,
+                                        right: 6,
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                              minWidth: 24, minHeight: 24),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryGreen,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '$count',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
 
-                        // Item Name Below Image
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                          child: Text(
-                            item.names.isNotEmpty ? item.names[0] : '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textBlack,
+                          // Item Name Below Image
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 2),
+                            child: Text(
+                              item.names.isNotEmpty ? item.names[0] : '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textBlack,
+                              ),
                             ),
                           ),
-                        ),
 
-                        const SizedBox(height: 2),
+                          const SizedBox(height: 2),
 
-                        // Price & Action Button (Plus when not selected, Red Minus when selected)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12, right: 8, bottom: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  "₹${_formatNumber(item.price)}",
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textBlack,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-
-                              if (!isSelected)
-                                GestureDetector(
-                                  onTap: () => _handleItemTap(item),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(7),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF6366F1),
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF6366F1).withOpacity(0.3),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        )
-                                      ],
+                          // Price & Action Button (Plus when not selected, Red Minus when selected)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                left: 12, right: 8, bottom: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    "₹${_formatNumber(item.price)}",
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textBlack,
                                     ),
-                                    child: const Icon(
-                                      Icons.add,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                )
-                              else
-                                GestureDetector(
-                                  onTap: () => _reduceItemFor(item),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(7),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEF4444), // Red minus button when selected
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFEF4444).withOpacity(0.3),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        )
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.remove,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                            ],
+                                if (!isSelected)
+                                  GestureDetector(
+                                    onTap: () => _handleItemTap(item),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(7),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF6366F1),
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF6366F1)
+                                                .withOpacity(0.3),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.add,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  GestureDetector(
+                                    onTap: () => _reduceItemFor(item),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(7),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                            0xFFEF4444), // Red minus button when selected
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFFEF4444)
+                                                .withOpacity(0.3),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.remove,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -1196,11 +1269,11 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       ],
     );
   }
-  
+
   // Build checkout FAB with clear button
   Widget _buildCheckoutFAB() {
     final itemCount = _currentBill.length;
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1243,20 +1316,21 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text("Frequent Billing"),
-        leading: _showBillView 
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                setState(() {
-                  _showBillView = false;
-                });
-              },
-            )
-          : null,
+        leading: _showBillView
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _showBillView = false;
+                  });
+                },
+              )
+            : null,
         actions: [
           if (!_showBillView) ...[
             IconButton(
@@ -1289,7 +1363,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
-  
+
   // Build bill review view (full screen)
   Widget _buildBillView() {
     return Column(
@@ -1331,7 +1405,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Column Headers
                 const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 5),
@@ -1372,13 +1446,15 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                 Expanded(
                   child: _currentBill.isEmpty
                       ? const Center(
-                          child: Text("Tap + to add items manually\nor go back to select items",
+                          child: Text(
+                              "Tap + to add items manually\nor go back to select items",
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.grey)))
                       : ListView.separated(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 10),
-                          itemCount: _currentBill.length + (_isEditMode ? 1 : 0),
+                          itemCount:
+                              _currentBill.length + (_isEditMode ? 1 : 0),
                           separatorBuilder: (_, __) =>
                               const Divider(height: 16),
                           itemBuilder: (context, index) {
@@ -1386,19 +1462,24 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                               return GestureDetector(
                                 onTap: _addManualItem,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryGreen.withOpacity(0.1),
+                                    color:
+                                        AppColors.primaryGreen.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: AppColors.primaryGreen.withOpacity(0.3),
+                                      color: AppColors.primaryGreen
+                                          .withOpacity(0.3),
                                       style: BorderStyle.solid,
                                     ),
                                   ),
                                   child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.add, color: AppColors.primaryGreen, size: 20),
+                                      Icon(Icons.add,
+                                          color: AppColors.primaryGreen,
+                                          size: 20),
                                       SizedBox(width: 8),
                                       Text(
                                         "Add Item",
@@ -1413,9 +1494,9 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                                 ),
                               );
                             }
-                            
+
                             final item = _currentBill[index];
-                            
+
                             if (_isEditMode) {
                               // Editable bill item
                               return Row(
@@ -1445,28 +1526,34 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                                           fontSize: 14),
                                       decoration: const InputDecoration(
                                         isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 4),
                                         border: OutlineInputBorder(),
                                       ),
-                                      onChanged: (value) => _updateBillItem(index, 'name', value),
+                                      onChanged: (value) =>
+                                          _updateBillItem(index, 'name', value),
                                     ),
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     flex: 1,
                                     child: TextFormField(
-                                      initialValue: _extractQuantityNumber(item.qtyDisplay),
+                                      initialValue: _extractQuantityNumber(
+                                          item.qtyDisplay),
                                       textAlign: TextAlign.center,
                                       keyboardType: TextInputType.number,
                                       style: const TextStyle(fontSize: 13),
                                       decoration: const InputDecoration(
                                         isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 2),
                                         border: OutlineInputBorder(),
                                       ),
                                       onChanged: (value) {
-                                        final newQtyDisplay = '$value${_getShortUnit(item.unit)}';
-                                        _updateBillItem(index, 'qtyDisplay', newQtyDisplay);
+                                        final newQtyDisplay =
+                                            '$value${_getShortUnit(item.unit)}';
+                                        _updateBillItem(
+                                            index, 'qtyDisplay', newQtyDisplay);
                                       },
                                     ),
                                   ),
@@ -1480,12 +1567,16 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                                       style: const TextStyle(fontSize: 11),
                                       decoration: InputDecoration(
                                         isDense: true,
-                                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                vertical: 8, horizontal: 4),
                                         border: const OutlineInputBorder(),
                                         prefixText: '₹',
-                                        suffixText: '/${_getShortUnit(item.unit)}',
+                                        suffixText:
+                                            '/${_getShortUnit(item.unit)}',
                                       ),
-                                      onChanged: (value) => _updateBillItem(index, 'rate', value),
+                                      onChanged: (value) =>
+                                          _updateBillItem(index, 'rate', value),
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -1524,13 +1615,16 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                                   ),
                                   Expanded(
                                     flex: 1,
-                                    child: Text(_extractQuantityNumber(item.qtyDisplay),
+                                    child: Text(
+                                        _extractQuantityNumber(item.qtyDisplay),
                                         textAlign: TextAlign.center,
                                         style: const TextStyle(fontSize: 13)),
                                   ),
                                   Expanded(
                                     flex: 3,
-                                    child: Text(_formatRateWithUnit(item.rate, item.unit),
+                                    child: Text(
+                                        _formatRateWithUnit(
+                                            item.rate, item.unit),
                                         textAlign: TextAlign.right,
                                         style: const TextStyle(fontSize: 12)),
                                   ),
@@ -1552,7 +1646,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
             ),
           ),
         ),
-        
+
         // Add more items button
         if (!_isEditMode && _currentBill.isNotEmpty)
           Padding(
@@ -1572,7 +1666,7 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
               ),
             ),
           ),
-        
+
         // Bill Footer
         Container(
           padding: const EdgeInsets.all(20),
@@ -1618,12 +1712,14 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                       onPressed: _currentBill.isEmpty ? null : _openShareModal,
                       icon: Icon(
                         Icons.send,
-                        color: _currentBill.isEmpty ? Colors.grey : AppColors.primaryGreen,
+                        color: _currentBill.isEmpty
+                            ? Colors.grey
+                            : AppColors.primaryGreen,
                         size: 28,
                       ),
                       style: IconButton.styleFrom(
-                        backgroundColor: _currentBill.isEmpty 
-                            ? Colors.grey[200] 
+                        backgroundColor: _currentBill.isEmpty
+                            ? Colors.grey[200]
                             : AppColors.primaryGreen.withOpacity(0.1),
                         padding: const EdgeInsets.all(12),
                       ),
@@ -1633,7 +1729,8 @@ class _FrequentBillingScreenState extends State<FrequentBillingScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _finalizeBill,
-                      icon: const Icon(Icons.print, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.print,
+                          color: Colors.white, size: 20),
                       label: const Text(
                         "PRINT & SAVE",
                         style: TextStyle(

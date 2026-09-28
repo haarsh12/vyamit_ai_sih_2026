@@ -57,7 +57,8 @@ class AuthSelectionScreen extends StatelessWidget {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const CategorySelectionScreen()));
+                            builder: (context) =>
+                                const CategorySelectionScreen()));
                   },
                   child: const Text("Create New Account",
                       style: TextStyle(

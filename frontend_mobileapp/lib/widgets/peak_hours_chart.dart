@@ -53,9 +53,12 @@ class PeakHoursChart extends StatelessWidget {
       );
     }
 
-    final maxSales = peakHours.map((h) => h.salesCount).reduce((a, b) => a > b ? a : b);
-    final maxY = (maxSales * 1.25).ceilToDouble().clamp(2, double.infinity).toDouble();
-    final yInterval = (maxY / 4).ceilToDouble().clamp(1, double.infinity).toDouble();
+    final maxSales =
+        peakHours.map((h) => h.salesCount).reduce((a, b) => a > b ? a : b);
+    final maxY =
+        (maxSales * 1.25).ceilToDouble().clamp(2, double.infinity).toDouble();
+    final yInterval =
+        (maxY / 4).ceilToDouble().clamp(1, double.infinity).toDouble();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -153,7 +156,8 @@ class PeakHoursChart extends StatelessWidget {
                       showTitles: true,
                       reservedSize: 30,
                       getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 && value.toInt() < peakHours.length) {
+                        if (value.toInt() >= 0 &&
+                            value.toInt() < peakHours.length) {
                           final hour = peakHours[value.toInt()].hour;
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
@@ -177,7 +181,8 @@ class PeakHoursChart extends StatelessWidget {
                       reservedSize: 35,
                       interval: yInterval,
                       getTitlesWidget: (value, meta) {
-                        if (value == 0 || value > maxY) return const SizedBox.shrink();
+                        if (value == 0 || value > maxY)
+                          return const SizedBox.shrink();
                         return Text(
                           value.toInt().toString(),
                           style: const TextStyle(

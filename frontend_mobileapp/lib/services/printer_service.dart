@@ -175,7 +175,8 @@ class PrinterService {
                     pw.Text("Time: ${billData['time'] ?? '-'}",
                         style: const pw.TextStyle(fontSize: 12)),
                   ]),
-              if (billData['payment_method']?.toString().toLowerCase() == 'udhaar')
+              if (billData['payment_method']?.toString().toLowerCase() ==
+                  'udhaar')
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 2),
                   child: pw.Center(
@@ -470,7 +471,7 @@ class PrinterService {
       if (invoice.isEmpty) {
         return "Print Error: Invoice data is empty";
       }
-      
+
       final seller =
           Map<String, dynamic>.from(invoice['seller'] as Map? ?? const {});
       final customer =
@@ -701,8 +702,7 @@ class PrinterService {
                                   fontSize: 9))),
                       pw.Expanded(
                           flex: 2,
-                          child: pw.Text(
-                              '$itemQty $itemUnit',
+                          child: pw.Text('$itemQty $itemUnit',
                               textAlign: pw.TextAlign.center,
                               style: const pw.TextStyle(fontSize: 9))),
                       pw.Expanded(
@@ -712,8 +712,7 @@ class PrinterService {
                               style: const pw.TextStyle(fontSize: 9))),
                       pw.Expanded(
                           flex: 2,
-                          child: pw.Text(
-                              '$itemGstRate%',
+                          child: pw.Text('$itemGstRate%',
                               textAlign: pw.TextAlign.right,
                               style: const pw.TextStyle(fontSize: 9))),
                       pw.Expanded(
@@ -785,11 +784,15 @@ class PrinterService {
             pw.Text(amountInWordsStr, style: const pw.TextStyle(fontSize: 9)),
 
             pw.SizedBox(height: 6),
-            _gstPrintRow('Payment Status',
-                _stringOr(invoice['payment_status'], 'PAID', 'PAID').toUpperCase(),
+            _gstPrintRow(
+                'Payment Status',
+                _stringOr(invoice['payment_status'], 'PAID', 'PAID')
+                    .toUpperCase(),
                 strong: true),
-            _gstPrintRow('Payment Method',
-                _stringOr(invoice['payment_method'], 'UPI', 'UPI').toUpperCase()),
+            _gstPrintRow(
+                'Payment Method',
+                _stringOr(invoice['payment_method'], 'UPI', 'UPI')
+                    .toUpperCase()),
 
             // --- BANK DETAILS ---
             if (hasBankDetails) ...[

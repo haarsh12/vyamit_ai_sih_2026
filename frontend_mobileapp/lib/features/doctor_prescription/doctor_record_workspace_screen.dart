@@ -25,9 +25,8 @@ class DoctorRecordWorkspaceScreen extends StatelessWidget {
     final subtitle = isPatientHistory
         ? 'Patient history will appear here when the clinical module is enabled.'
         : 'Previous prescriptions and records will appear here when enabled.';
-    final icon = isPatientHistory
-        ? Icons.people_alt_rounded
-        : Icons.folder_copy_rounded;
+    final icon =
+        isPatientHistory ? Icons.people_alt_rounded : Icons.folder_copy_rounded;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -55,7 +54,8 @@ class DoctorRecordWorkspaceScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Text(
                 title,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(

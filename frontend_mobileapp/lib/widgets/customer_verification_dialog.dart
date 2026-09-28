@@ -53,30 +53,31 @@ class _CustomerVerificationDialogState
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                suggestion.isDuplicate 
-                    ? Icons.people_alt 
-                    : Icons.person_add,
+                suggestion.isDuplicate ? Icons.people_alt : Icons.person_add,
                 color: AppColors.primaryGreen,
                 size: 30,
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Title
             Text(
-              suggestion.isDuplicate ? 'Add Bill to Customer?' : 'Save Customer?',
+              suggestion.isDuplicate
+                  ? 'Add Bill to Customer?'
+                  : 'Save Customer?',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Message
-            if (suggestion.isDuplicate && suggestion.existingCustomerName != null)
+            if (suggestion.isDuplicate &&
+                suggestion.existingCustomerName != null)
               Text(
                 'Existing verified customer: ${suggestion.existingCustomerName}',
                 style: const TextStyle(
@@ -86,10 +87,11 @@ class _CustomerVerificationDialogState
                 ),
                 textAlign: TextAlign.center,
               ),
-            
-            if (suggestion.isDuplicate && suggestion.existingCustomerName != null)
+
+            if (suggestion.isDuplicate &&
+                suggestion.existingCustomerName != null)
               const SizedBox(height: 8),
-            
+
             Text(
               suggestion.message,
               style: const TextStyle(
@@ -98,9 +100,9 @@ class _CustomerVerificationDialogState
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Buttons
             Row(
               children: [

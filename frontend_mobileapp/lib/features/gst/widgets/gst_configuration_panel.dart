@@ -45,11 +45,27 @@ const Map<String, String> kIndianStatesWithCodes = {
 };
 
 const Map<String, List<String>> kCitiesByState = {
-  'Maharashtra': ['Mumbai', 'Nagpur', 'Pune', 'Nashik', 'Thane', 'Navi Mumbai', 'Aurangabad', 'Solapur', 'Other'],
+  'Maharashtra': [
+    'Mumbai',
+    'Nagpur',
+    'Pune',
+    'Nashik',
+    'Thane',
+    'Navi Mumbai',
+    'Aurangabad',
+    'Solapur',
+    'Other'
+  ],
   'Delhi': ['New Delhi', 'Delhi', 'Dwarka', 'Rohini', 'Other'],
   'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Other'],
   'Karnataka': ['Bengaluru', 'Mysuru', 'Hubballi', 'Mangaluru', 'Other'],
-  'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Other'],
+  'Tamil Nadu': [
+    'Chennai',
+    'Coimbatore',
+    'Madurai',
+    'Tiruchirappalli',
+    'Other'
+  ],
   'Telangana': ['Hyderabad', 'Warangal', 'Nizamabad', 'Other'],
   'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Other'],
   'Madhya Pradesh': ['Indore', 'Bhopal', 'Jabalpur', 'Gwalior', 'Other'],
@@ -105,12 +121,15 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
     _legalName = TextEditingController(text: config.legalName);
     _gstin = TextEditingController(text: config.gstin);
     _address = TextEditingController(text: config.addressLine);
-    _state = TextEditingController(text: config.state.isEmpty ? 'Maharashtra' : config.state);
-    _stateCode = TextEditingController(text: config.stateCode.isEmpty ? '27' : config.stateCode);
+    _state = TextEditingController(
+        text: config.state.isEmpty ? 'Maharashtra' : config.state);
+    _stateCode = TextEditingController(
+        text: config.stateCode.isEmpty ? '27' : config.stateCode);
     final cities = _citiesForState(_state.text);
-    _city = TextEditingController(text: config.city.isEmpty ? cities.first : config.city);
+    _city = TextEditingController(
+        text: config.city.isEmpty ? cities.first : config.city);
     _customCity = TextEditingController();
-    
+
     // Check if initial city is in standard list
     if (config.city.isNotEmpty && !cities.contains(config.city)) {
       _isCustomCity = true;
@@ -121,9 +140,13 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
     _pincode = TextEditingController(text: config.pincode);
     _contact = TextEditingController(text: config.contactNumber);
     _email = TextEditingController(text: config.email);
-    _prefix = TextEditingController(text: config.invoicePrefix.isEmpty ? 'GST' : config.invoicePrefix);
+    _prefix = TextEditingController(
+        text: config.invoicePrefix.isEmpty ? 'GST' : config.invoicePrefix);
     _terms = TextEditingController(text: config.invoiceTerms);
-    _rates = TextEditingController(text: config.allowedGstRates.isEmpty ? '0, 5, 12, 18, 28' : config.allowedGstRates.join(', '));
+    _rates = TextEditingController(
+        text: config.allowedGstRates.isEmpty
+            ? '0, 5, 12, 18, 28'
+            : config.allowedGstRates.join(', '));
     _bankName = TextEditingController(text: config.bankName);
     _accountName = TextEditingController(text: config.accountName);
     _accountNumber = TextEditingController(text: config.accountNumber);
@@ -166,7 +189,8 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
   String? _gstinValidator(String? value) {
     final gstin = (value ?? '').replaceAll(RegExp(r'\s+'), '').toUpperCase();
     if (gstin.isEmpty) return 'GSTIN is required';
-    if (!RegExp(r'^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$').hasMatch(gstin)) {
+    if (!RegExp(r'^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$')
+        .hasMatch(gstin)) {
       return 'Enter a valid 15-character GSTIN';
     }
     const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -189,13 +213,15 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toList();
-    if (values.isEmpty || values.any((value) {
-      final rate = double.tryParse(value);
-      return rate == null || rate < 0 || rate > 40;
-    })) {
+    if (values.isEmpty ||
+        values.any((value) {
+          final rate = double.tryParse(value);
+          return rate == null || rate < 0 || rate > 40;
+        })) {
       return null;
     }
-    return values.toSet().toList()..sort((a, b) => double.parse(a).compareTo(double.parse(b)));
+    return values.toSet().toList()
+      ..sort((a, b) => double.parse(a).compareTo(double.parse(b)));
   }
 
   Future<void> _save() async {
@@ -203,12 +229,14 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
     final rates = _parseRates();
     if (rates == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter comma-separated GST rates between 0 and 40.')),
+        const SnackBar(
+            content: Text('Enter comma-separated GST rates between 0 and 40.')),
       );
       return;
     }
-    
-    final finalCity = _isCustomCity ? _customCity.text.trim() : _city.text.trim();
+
+    final finalCity =
+        _isCustomCity ? _customCity.text.trim() : _city.text.trim();
     if (finalCity.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('City is required')),
@@ -249,7 +277,9 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('GST configuration could not be saved: $error'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('GST configuration could not be saved: $error'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -261,7 +291,9 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('GST Billing could not be disabled: $error'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('GST Billing could not be disabled: $error'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -284,7 +316,8 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
         maxLines: maxLines,
         readOnly: readOnly,
         textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(labelText: label, hintText: hint, isDense: true),
+        decoration:
+            InputDecoration(labelText: label, hintText: hint, isDense: true),
       ),
     );
   }
@@ -297,25 +330,35 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
       child: Column(
         children: [
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             leading: CircleAvatar(
-              backgroundColor: (enabled ? AppColors.primaryGreen : Colors.grey).withOpacity(0.14),
-              child: Icon(Icons.receipt_long_rounded, color: enabled ? AppColors.primaryGreen : Colors.grey[700]),
+              backgroundColor: (enabled ? AppColors.primaryGreen : Colors.grey)
+                  .withOpacity(0.14),
+              child: Icon(Icons.receipt_long_rounded,
+                  color: enabled ? AppColors.primaryGreen : Colors.grey[700]),
             ),
-            title: const Text('GST Billing', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(enabled ? 'GST Enabled • Validated profile' : 'Set up seller GST details'),
+            title: const Text('GST Billing',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(enabled
+                ? 'GST Enabled • Validated profile'
+                : 'Set up seller GST details'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   decoration: BoxDecoration(
                     color: enabled ? AppColors.primaryGreen : Colors.grey[400],
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     enabled ? 'ENABLED' : 'DISABLED',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -336,13 +379,18 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const Divider(),
-                          const Text('Seller GST configuration', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Text('Seller GST configuration',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 12),
-                          _field('Business / shop name *', _businessName, validator: (value) => _required(value, 'Business name')),
+                          _field('Business / shop name *', _businessName,
+                              validator: (value) =>
+                                  _required(value, 'Business name')),
                           _field('Legal business name (optional)', _legalName),
                           _field('GSTIN *', _gstin, validator: _gstinValidator),
-                          _field('Address *', _address, validator: (value) => _required(value, 'Address'), maxLines: 2),
-                          
+                          _field('Address *', _address,
+                              validator: (value) => _required(value, 'Address'),
+                              maxLines: 2),
+
                           // STATE & CITY DROPDOWNS
                           Row(children: [
                             // State Dropdown
@@ -350,19 +398,30 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: DropdownButtonFormField<String>(
-                                  value: kIndianStatesWithCodes.containsKey(_state.text) ? _state.text : 'Maharashtra',
+                                  value: kIndianStatesWithCodes
+                                          .containsKey(_state.text)
+                                      ? _state.text
+                                      : 'Maharashtra',
                                   isExpanded: true,
-                                  decoration: const InputDecoration(labelText: 'State *', isDense: true),
+                                  decoration: const InputDecoration(
+                                      labelText: 'State *', isDense: true),
                                   items: kIndianStatesWithCodes.keys
-                                      .map((st) => DropdownMenuItem(value: st, child: Text(st, overflow: TextOverflow.ellipsis)))
+                                      .map((st) => DropdownMenuItem(
+                                          value: st,
+                                          child: Text(st,
+                                              overflow: TextOverflow.ellipsis)))
                                       .toList(),
                                   onChanged: (selectedState) {
                                     if (selectedState != null) {
                                       setState(() {
-                                       _state.text = selectedState;
-                                       final code = kIndianStatesWithCodes[selectedState] ?? '27';
-                                       _stateCode.text = code;
-                                        _city.text = _citiesForState(selectedState).first;
+                                        _state.text = selectedState;
+                                        final code = kIndianStatesWithCodes[
+                                                selectedState] ??
+                                            '27';
+                                        _stateCode.text = code;
+                                        _city.text =
+                                            _citiesForState(selectedState)
+                                                .first;
                                         _customCity.clear();
                                         _isCustomCity = false;
                                       });
@@ -377,17 +436,25 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: DropdownButtonFormField<String>(
-                                  value: _citiesForState(_state.text).contains(_city.text) ? _city.text : 'Other',
+                                  value: _citiesForState(_state.text)
+                                          .contains(_city.text)
+                                      ? _city.text
+                                      : 'Other',
                                   isExpanded: true,
-                                  decoration: const InputDecoration(labelText: 'City *', isDense: true),
+                                  decoration: const InputDecoration(
+                                      labelText: 'City *', isDense: true),
                                   items: _citiesForState(_state.text)
-                                      .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
+                                      .map((c) => DropdownMenuItem(
+                                          value: c,
+                                          child: Text(c,
+                                              overflow: TextOverflow.ellipsis)))
                                       .toList(),
                                   onChanged: (selectedCity) {
                                     if (selectedCity != null) {
                                       setState(() {
                                         _city.text = selectedCity;
-                                        _isCustomCity = (selectedCity == 'Other');
+                                        _isCustomCity =
+                                            (selectedCity == 'Other');
                                       });
                                     }
                                   },
@@ -398,41 +465,72 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
 
                           // Custom City input if 'Other' selected
                           if (_isCustomCity)
-                            _field('Enter City Name *', _customCity, validator: (v) => _isCustomCity ? _required(v, 'City name') : null),
+                            _field('Enter City Name *', _customCity,
+                                validator: (v) => _isCustomCity
+                                    ? _required(v, 'City name')
+                                    : null),
 
                           Row(children: [
-                            Expanded(child: _field('GST state code', _stateCode, readOnly: true, keyboardType: TextInputType.number)),
+                            Expanded(
+                                child: _field('GST state code', _stateCode,
+                                    readOnly: true,
+                                    keyboardType: TextInputType.number)),
                             const SizedBox(width: 10),
-                            Expanded(child: _field('Pincode *', _pincode, validator: (value) => RegExp(r'^\d{6}$').hasMatch((value ?? '').trim()) ? null : 'Use 6 digits', keyboardType: TextInputType.number)),
+                            Expanded(
+                                child: _field('Pincode *', _pincode,
+                                    validator: (value) => RegExp(r'^\d{6}$')
+                                            .hasMatch((value ?? '').trim())
+                                        ? null
+                                        : 'Use 6 digits',
+                                    keyboardType: TextInputType.number)),
                           ]),
-                          _field('Contact number (optional)', _contact, keyboardType: TextInputType.phone),
-                          _field('Email (optional)', _email, keyboardType: TextInputType.emailAddress),
-                          
+                          _field('Contact number (optional)', _contact,
+                              keyboardType: TextInputType.phone),
+                          _field('Email (optional)', _email,
+                              keyboardType: TextInputType.emailAddress),
+
                           Row(children: [
                             Expanded(
                               child: _field(
                                 'Invoice prefix *',
                                 _prefix,
                                 hint: 'GST creates GST-2026-00001',
-                                validator: (value) => RegExp(r'^[A-Za-z0-9\-\/]{1,10}$').hasMatch((value ?? '').trim()) ? null : '1–10 letters/numbers',
+                                validator: (value) =>
+                                    RegExp(r'^[A-Za-z0-9\-\/]{1,10}$')
+                                            .hasMatch((value ?? '').trim())
+                                        ? null
+                                        : '1–10 letters/numbers',
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Expanded(child: _field('GST rates *', _rates, hint: '0, 5, 12, 18, 28')),
+                            Expanded(
+                                child: _field('GST rates *', _rates,
+                                    hint: '0, 5, 12, 18, 28')),
                           ]),
-                          _field('Invoice terms (optional)', _terms, maxLines: 2),
-                          const Text('Bank details (optional)', style: TextStyle(fontWeight: FontWeight.w700)),
+                          _field('Invoice terms (optional)', _terms,
+                              maxLines: 2),
+                          const Text('Bank details (optional)',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 8),
-                          _field('Bank name', _bankName, hint: 'e.g. HDFC Bank'),
-                          _field('Account name', _accountName, hint: 'e.g. Harsh General Store'),
+                          _field('Bank name', _bankName,
+                              hint: 'e.g. HDFC Bank'),
+                          _field('Account name', _accountName,
+                              hint: 'e.g. Harsh General Store'),
                           Row(children: [
-                            Expanded(child: _field('Account number', _accountNumber, keyboardType: TextInputType.number)),
+                            Expanded(
+                                child: _field('Account number', _accountNumber,
+                                    keyboardType: TextInputType.number)),
                             const SizedBox(width: 10),
-                            Expanded(child: _field('IFSC code', _ifsc, hint: 'e.g. HDFC000XXXX')),
+                            Expanded(
+                                child: _field('IFSC code', _ifsc,
+                                    hint: 'e.g. HDFC000XXXX')),
                           ]),
                           const Text(
                             'This validates GSTIN structure and state consistency. It does not verify live registration status with the GST portal.',
-                            style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.35),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                                height: 1.35),
                           ),
                           const SizedBox(height: 14),
                           Wrap(
@@ -442,23 +540,37 @@ class _GstConfigurationPanelState extends State<GstConfigurationPanel>
                             children: [
                               if (enabled)
                                 TextButton(
-                                  onPressed: provider.isSaving ? null : _disable,
+                                  onPressed:
+                                      provider.isSaving ? null : _disable,
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 8),
                                   ),
-                                  child: const Text('Disable GST', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                  child: const Text('Disable GST',
+                                      style: TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.bold)),
                                 ),
                               ElevatedButton.icon(
                                 onPressed: provider.isSaving ? null : _save,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primaryGreen,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
                                 ),
                                 icon: provider.isSaving
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.check_circle_outline, size: 18),
-                                label: Text(provider.isSaving ? 'Validating...' : (enabled ? 'Change' : 'Confirm GST')),
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white))
+                                    : const Icon(Icons.check_circle_outline,
+                                        size: 18),
+                                label: Text(provider.isSaving
+                                    ? 'Validating...'
+                                    : (enabled ? 'Change' : 'Confirm GST')),
                               ),
                             ],
                           ),

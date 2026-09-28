@@ -104,15 +104,18 @@ class _DoctorPrescriptionHistoryScreenState
                     Center(
                       child: Column(
                         children: [
-                          Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey.shade400),
+                          Icon(Icons.cloud_off_rounded,
+                              size: 48, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
-                          Text(_error!, style: const TextStyle(color: Colors.black54)),
+                          Text(_error!,
+                              style: const TextStyle(color: Colors.black54)),
                           const SizedBox(height: 12),
                           OutlinedButton.icon(
                             onPressed: _load,
                             icon: const Icon(Icons.refresh_rounded, size: 18),
                             label: const Text('Try again'),
-                            style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryGreen),
+                            style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primaryGreen),
                           ),
                         ],
                       ),
@@ -144,7 +147,8 @@ class _DoctorPrescriptionHistoryScreenState
                               const Text(
                                 'Prescriptions that you format and print will be saved here automatically.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: AppColors.textGrey, height: 1.4),
+                                style: TextStyle(
+                                    color: AppColors.textGrey, height: 1.4),
                               ),
                             ],
                           ),
@@ -205,12 +209,18 @@ class _DoctorPrescriptionHistoryScreenState
         ),
         title: Text(
           patientName.isEmpty ? 'General Patient' : patientName,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textBlack),
+          style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textBlack),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(dateLabel,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500)),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -226,17 +236,17 @@ class _DoctorPrescriptionHistoryScreenState
         ),
         children: [
           const Divider(height: 16, thickness: 0.8),
-          
+
           // Patient details chips
           Wrap(
             spacing: 6,
             runSpacing: 4,
             children: [
-              if (age != null)
-                _chip(Icons.cake_rounded, '$age yrs'),
-              if (gender.isNotEmpty)
-                _chip(Icons.person_rounded, gender),
-              _chip(Icons.medication_rounded, '${medications.length} Medications', isHighlight: true),
+              if (age != null) _chip(Icons.cake_rounded, '$age yrs'),
+              if (gender.isNotEmpty) _chip(Icons.person_rounded, gender),
+              _chip(
+                  Icons.medication_rounded, '${medications.length} Medications',
+                  isHighlight: true),
             ],
           ),
 
@@ -252,7 +262,8 @@ class _DoctorPrescriptionHistoryScreenState
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.medical_information_rounded, size: 16, color: Colors.amber),
+                  const Icon(Icons.medical_information_rounded,
+                      size: 16, color: Colors.amber),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -288,7 +299,8 @@ class _DoctorPrescriptionHistoryScreenState
             final freq = medicine['frequency']?.toString().trim() ?? '';
             final duration = medicine['duration']?.toString().trim() ?? '';
             final timing = medicine['timing']?.toString().trim() ?? '';
-            final instruction = medicine['instructions']?.toString().trim() ?? '';
+            final instruction =
+                medicine['instructions']?.toString().trim() ?? '';
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -303,16 +315,21 @@ class _DoctorPrescriptionHistoryScreenState
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, size: 15, color: AppColors.primaryGreen),
+                      const Icon(Icons.check_circle_rounded,
+                          size: 15, color: AppColors.primaryGreen),
                       const SizedBox(width: 6),
                       Text(
                         medName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       if (dose.isNotEmpty)
                         Text(
                           ' ($dose)',
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black54, fontSize: 13),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                              fontSize: 13),
                         ),
                     ],
                   ),
@@ -322,8 +339,10 @@ class _DoctorPrescriptionHistoryScreenState
                     runSpacing: 4,
                     children: [
                       if (freq.isNotEmpty) _medPill('Freq: $freq'),
-                      if (duration.isNotEmpty) _medPill('Duration: $duration', color: Colors.blue),
-                      if (timing.isNotEmpty) _medPill('When: $timing', color: Colors.teal),
+                      if (duration.isNotEmpty)
+                        _medPill('Duration: $duration', color: Colors.blue),
+                      if (timing.isNotEmpty)
+                        _medPill('When: $timing', color: Colors.teal),
                     ],
                   ),
                   if (instruction.isNotEmpty)
@@ -331,7 +350,10 @@ class _DoctorPrescriptionHistoryScreenState
                       padding: const EdgeInsets.only(top: 4, left: 4),
                       child: Text(
                         'Instructions: $instruction',
-                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade700),
                       ),
                     ),
                 ],
@@ -348,12 +370,16 @@ class _DoctorPrescriptionHistoryScreenState
             ),
             child: Row(
               children: [
-                const Icon(Icons.verified_user_rounded, size: 14, color: AppColors.primaryGreen),
+                const Icon(Icons.verified_user_rounded,
+                    size: 14, color: AppColors.primaryGreen),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Dr. ${doctor['name'] ?? 'Doctor'} • Reg. No: ${doctor['medical_registration_number'] ?? 'N/A'}',
-                    style: const TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -380,7 +406,9 @@ class _DoctorPrescriptionHistoryScreenState
             label,
             style: TextStyle(
                 fontSize: 11,
-                color: isHighlight ? AppColors.primaryGreen : const Color(0xFF33691E),
+                color: isHighlight
+                    ? AppColors.primaryGreen
+                    : const Color(0xFF33691E),
                 fontWeight: FontWeight.bold),
           ),
         ],
@@ -398,7 +426,8 @@ class _DoctorPrescriptionHistoryScreenState
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color.shade800),
+        style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.bold, color: color.shade800),
       ),
     );
   }

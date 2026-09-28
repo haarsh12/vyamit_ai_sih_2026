@@ -51,12 +51,14 @@ class CategoryWorkspaceScreen extends StatelessWidget {
                     children: [
                       Text(
                         shopCategory,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         workspace.description,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.35),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 16, height: 1.35),
                       ),
                     ],
                   ),
@@ -78,14 +80,17 @@ class CategoryWorkspaceScreen extends StatelessWidget {
                   backgroundColor: AppColors.lightGreenBg,
                   child: Icon(action.icon, color: AppColors.primaryGreen),
                 ),
-                title: Text(action.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                title: Text(action.title,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(action.description),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${action.title} is ready for this $shopCategory workspace.')),
+                  SnackBar(
+                      content: Text(
+                          '${action.title} is ready for this $shopCategory workspace.')),
                 ),
               ),
             ),

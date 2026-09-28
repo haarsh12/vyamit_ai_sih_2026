@@ -55,7 +55,8 @@ class GstProvider with ChangeNotifier {
     notifyListeners();
     try {
       await _service.disableConfiguration();
-      _configuration = const GstConfiguration(isEnabled: false, verificationStatus: 'disabled');
+      _configuration = const GstConfiguration(
+          isEnabled: false, verificationStatus: 'disabled');
       resetCurrentBill();
     } finally {
       _isSaving = false;
@@ -86,4 +87,3 @@ class GstProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-

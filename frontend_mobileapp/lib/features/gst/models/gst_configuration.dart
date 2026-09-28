@@ -51,7 +51,8 @@ class GstConfiguration {
     return GstConfiguration(
       isEnabled: json['is_enabled'] == true,
       canIssueTaxInvoice: json['can_issue_tax_invoice'] == true,
-      verificationStatus: json['verification_status']?.toString() ?? 'not_configured',
+      verificationStatus:
+          json['verification_status']?.toString() ?? 'not_configured',
       businessName: json['business_name']?.toString() ?? '',
       legalName: json['legal_name']?.toString() ?? '',
       gstin: json['gstin']?.toString() ?? '',

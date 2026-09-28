@@ -9,7 +9,14 @@ import '../../../core/config.dart';
 import '../../../services/api_client.dart';
 import 'android_aec_speech_capture.dart';
 
-enum TokenSaverSessionState { idle, connecting, listening, processing, speaking, error }
+enum TokenSaverSessionState {
+  idle,
+  connecting,
+  listening,
+  processing,
+  speaking,
+  error
+}
 
 extension TokenSaverSessionStateLabel on TokenSaverSessionState {
   String get label => switch (this) {
@@ -42,7 +49,8 @@ class TokenSaverVoiceService {
     );
   }
 
-  final void Function(TokenSaverSessionState state, String message) onStateChanged;
+  final void Function(TokenSaverSessionState state, String message)
+      onStateChanged;
   final void Function(String transcript) onTranscriptChanged;
   final void Function(double level) onAudioLevelChanged;
   final void Function(Map<String, dynamic> response) onResponse;
@@ -79,7 +87,8 @@ class TokenSaverVoiceService {
     _isActive = true;
     _partialTranscript = '';
     _activeRequestId = null;
-    _setState(TokenSaverSessionState.connecting, 'Preparing device voice services…');
+    _setState(
+        TokenSaverSessionState.connecting, 'Preparing device voice services…');
 
     try {
       await _tts.awaitSpeakCompletion(true);
@@ -99,7 +108,8 @@ class TokenSaverVoiceService {
         _speechInitialised = available;
         if (!available) {
           _isActive = false;
-          _setState(TokenSaverSessionState.error, 'Enable microphone permission and an on-device speech language.');
+          _setState(TokenSaverSessionState.error,
+              'Enable microphone permission and an on-device speech language.');
           return false;
         }
         _localeId = await _findSupportedIndianLocale();
@@ -108,7 +118,8 @@ class TokenSaverVoiceService {
       return true;
     } catch (_) {
       _isActive = false;
-      _setState(TokenSaverSessionState.error, 'Could not start Token Saver. Check your connection and try again.');
+      _setState(TokenSaverSessionState.error,
+          'Could not start Token Saver. Check your connection and try again.');
       return false;
     }
   }
@@ -167,38 +178,46 @@ class TokenSaverVoiceService {
       if (decoded is! Map) return;
       message = Map<String, dynamic>.from(decoded);
     } catch (_) {
-      _setState(TokenSaverSessionState.error, 'Received an invalid server response.');
+      _setState(
+          TokenSaverSessionState.error, 'Received an invalid server response.');
       return;
     }
 
     final type = message['type']?.toString();
     if (type == 'connected') {
       _isSocketConnected = true;
-      _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+      _setState(TokenSaverSessionState.listening,
+          TokenSaverSessionState.listening.label);
       unawaited(_startDeviceRecognition());
       return;
     }
     if (!_belongsToActiveRequest(message)) return;
     if (type == 'processing') {
-      _setState(TokenSaverSessionState.processing, message['message']?.toString() ?? 'Processing text…');
+      _setState(TokenSaverSessionState.processing,
+          message['message']?.toString() ?? 'Processing text…');
       return;
     }
     if (type == 'complete') {
       final response = message['response'];
       if (response is! Map) {
-        _setState(TokenSaverSessionState.error, 'Token Saver returned an invalid response.');
+        _setState(TokenSaverSessionState.error,
+            'Token Saver returned an invalid response.');
         _scheduleRecognizerRestart();
         return;
       }
       _activeRequestId = null;
       final result = Map<String, dynamic>.from(response);
       onResponse(result);
-      unawaited(_speakThenListen(result['message']?.toString() ?? 'Ready for the next item.'));
+      unawaited(_speakThenListen(
+          result['message']?.toString() ?? 'Ready for the next item.'));
       return;
     }
     if (type == 'error') {
       _activeRequestId = null;
-      _setState(TokenSaverSessionState.error, message['message']?.toString() ?? 'Token Saver could not process that request.');
+      _setState(
+          TokenSaverSessionState.error,
+          message['message']?.toString() ??
+              'Token Saver could not process that request.');
       _scheduleRecognizerRestart();
     }
   }
@@ -236,9 +255,11 @@ class TokenSaverVoiceService {
       final support = await _aecCapture.support();
       if (support['supported'] == true) {
         final settings = await _aecCapture.start();
-        _usesNativeAec = settings['started'] == true && settings['aec_attached'] == true;
+        _usesNativeAec =
+            settings['started'] == true && settings['aec_attached'] == true;
         if (_usesNativeAec) {
-          _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+          _setState(TokenSaverSessionState.listening,
+              TokenSaverSessionState.listening.label);
           return;
         }
         await _aecCapture.stop();
@@ -249,7 +270,10 @@ class TokenSaverVoiceService {
   }
 
   Future<void> _startFallbackRecognizer() async {
-    if (!_isActive || !_isSocketConnected || _speech.isListening || _activeRequestId != null) return;
+    if (!_isActive ||
+        !_isSocketConnected ||
+        _speech.isListening ||
+        _activeRequestId != null) return;
     try {
       await _speech.listen(
         onResult: _handleRecognitionResult,
@@ -272,7 +296,8 @@ class TokenSaverVoiceService {
           pauseFor: const Duration(seconds: 4),
         ),
       );
-      _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+      _setState(TokenSaverSessionState.listening,
+          TokenSaverSessionState.listening.label);
     } catch (_) {
       _scheduleRecognizerRestart();
     }
@@ -285,7 +310,8 @@ class TokenSaverVoiceService {
       if (words is! String || words.trim().isEmpty) return;
       _acceptRecognitionResult(words, result?.finalResult == true);
     } catch (_) {
-      _setState(TokenSaverSessionState.error, 'Speech recognition returned an invalid result.');
+      _setState(TokenSaverSessionState.error,
+          'Speech recognition returned an invalid result.');
     }
   }
 
@@ -299,14 +325,19 @@ class TokenSaverVoiceService {
     onTranscriptChanged(_partialTranscript);
     _dispatchTimer?.cancel();
     _dispatchTimer = Timer(
-      isFinal ? const Duration(milliseconds: 350) : const Duration(milliseconds: 1600),
+      isFinal
+          ? const Duration(milliseconds: 350)
+          : const Duration(milliseconds: 1600),
       _dispatchCurrentTranscript,
     );
   }
 
   Future<void> _dispatchCurrentTranscript() async {
     final transcript = _partialTranscript.trim();
-    if (!_isActive || !_isSocketConnected || transcript.isEmpty || _activeRequestId != null) return;
+    if (!_isActive ||
+        !_isSocketConnected ||
+        transcript.isEmpty ||
+        _activeRequestId != null) return;
     if (_isRecentDuplicate(transcript)) {
       _partialTranscript = '';
       return;
@@ -321,9 +352,11 @@ class TokenSaverVoiceService {
     }
     if (_speech.isListening) await _speech.stop();
     onAudioLevelChanged(0);
-    final requestId = '${DateTime.now().microsecondsSinceEpoch}-${++_requestSequence}';
+    final requestId =
+        '${DateTime.now().microsecondsSinceEpoch}-${++_requestSequence}';
     _activeRequestId = requestId;
-    _setState(TokenSaverSessionState.processing, TokenSaverSessionState.processing.label);
+    _setState(TokenSaverSessionState.processing,
+        TokenSaverSessionState.processing.label);
     try {
       _channel?.sink.add(jsonEncode({
         'action': 'process',
@@ -358,19 +391,25 @@ class TokenSaverVoiceService {
     try {
       await _tts.speak(response);
       final waitMs = (response.length * 120).clamp(1500, 8000);
-      await completer.future.timeout(Duration(milliseconds: waitMs), onTimeout: () => null);
+      await completer.future
+          .timeout(Duration(milliseconds: waitMs), onTimeout: () => null);
     } catch (_) {
       // Local playback is optional; the visible response is still delivered.
     } finally {
       if (_isActive && _activeRequestId == null) {
-        _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+        _setState(TokenSaverSessionState.listening,
+            TokenSaverSessionState.listening.label);
         _scheduleRecognizerRestart();
       }
     }
   }
 
   void _handleSpeechStatus(String status) {
-    if (!_isActive || _activeRequestId != null || _usesNativeAec || _currentState == TokenSaverSessionState.speaking || _currentState == TokenSaverSessionState.processing) return;
+    if (!_isActive ||
+        _activeRequestId != null ||
+        _usesNativeAec ||
+        _currentState == TokenSaverSessionState.speaking ||
+        _currentState == TokenSaverSessionState.processing) return;
     if (status == 'done' || status == 'notListening' || status == 'stopped') {
       _scheduleRecognizerRestart();
     }
@@ -379,7 +418,8 @@ class TokenSaverVoiceService {
   void _handleNativeSpeechStatus(String status) {
     if (!_isActive || _activeRequestId != null) return;
     if (status == 'listening' || status == 'speech_start') {
-      _setState(TokenSaverSessionState.listening, TokenSaverSessionState.listening.label);
+      _setState(TokenSaverSessionState.listening,
+          TokenSaverSessionState.listening.label);
       return;
     }
     if (status == 'done' || status == 'stopped') {
@@ -413,14 +453,18 @@ class TokenSaverVoiceService {
         _scheduleRecognizerRestart();
         return;
       }
-      _setState(TokenSaverSessionState.error, 'Speech recognition stopped. Check the installed on-device language.');
+      _setState(TokenSaverSessionState.error,
+          'Speech recognition stopped. Check the installed on-device language.');
       return;
     }
     _scheduleRecognizerRestart();
   }
 
   void _scheduleRecognizerRestart() {
-    if (!_isActive || !_isSocketConnected || _activeRequestId != null || _currentState == TokenSaverSessionState.speaking) return;
+    if (!_isActive ||
+        !_isSocketConnected ||
+        _activeRequestId != null ||
+        _currentState == TokenSaverSessionState.speaking) return;
     _restartTimer?.cancel();
     _restartTimer = Timer(const Duration(milliseconds: 450), () {
       unawaited(_startDeviceRecognition());
@@ -448,11 +492,14 @@ class TokenSaverVoiceService {
         _normalise(value) == _lastDispatchedTranscript;
   }
 
-  String _normalise(String value) => value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  String _normalise(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
 
   void _setState(TokenSaverSessionState state, String message) {
     _currentState = state;
-    if (_isActive || state == TokenSaverSessionState.error || state == TokenSaverSessionState.idle) {
+    if (_isActive ||
+        state == TokenSaverSessionState.error ||
+        state == TokenSaverSessionState.idle) {
       onStateChanged(state, message);
     }
   }
