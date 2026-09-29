@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 
 import '../models/gst_configuration.dart';
 import '../services/gst_service.dart';
+import '../../../services/cache_service.dart';
 
 class GstProvider with ChangeNotifier {
   final GstService _service;
+  final CacheService _cacheService = CacheService();
 
   GstProvider({GstService? service}) : _service = service ?? GstService();
 
@@ -26,11 +28,24 @@ class GstProvider with ChangeNotifier {
 
   Future<void> loadConfiguration() async {
     if (_isLoading) return;
-    _isLoading = true;
-    notifyListeners();
+
+    // Load from local cache immediately
+    final cached = await _cacheService.getData('gst_config');
+    if (cached is Map) {
+      try {
+        _configuration = GstConfiguration.fromJson(Map<String, dynamic>.from(cached));
+        if (!_configuration.isEnabled) _currentBillGstEnabled = false;
+        notifyListeners();
+      } catch (_) {}
+    } else {
+      _isLoading = true;
+      notifyListeners();
+    }
+
     try {
       _configuration = await _service.getConfiguration();
       if (!_configuration.isEnabled) _currentBillGstEnabled = false;
+      await _cacheService.saveData('gst_config', _configuration.toJson());
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -43,6 +58,7 @@ class GstProvider with ChangeNotifier {
     notifyListeners();
     try {
       _configuration = await _service.saveConfiguration(configuration);
+      await _cacheService.saveData('gst_config', _configuration.toJson());
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -57,6 +73,7 @@ class GstProvider with ChangeNotifier {
       await _service.disableConfiguration();
       _configuration = const GstConfiguration(
           isEnabled: false, verificationStatus: 'disabled');
+      await _cacheService.saveData('gst_config', _configuration.toJson());
       resetCurrentBill();
     } finally {
       _isSaving = false;

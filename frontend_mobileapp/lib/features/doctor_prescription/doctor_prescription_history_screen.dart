@@ -26,15 +26,22 @@ class _DoctorPrescriptionHistoryScreenState
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted && _records.isEmpty) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final records = await _service.history();
-      if (mounted) setState(() => _records = records);
-    } catch (_) {
       if (mounted) {
+        setState(() {
+          _records = records;
+          _error = null;
+        });
+      }
+    } catch (_) {
+      if (mounted && _records.isEmpty) {
         setState(() => _error = 'Unable to load prescription history.');
       }
     } finally {

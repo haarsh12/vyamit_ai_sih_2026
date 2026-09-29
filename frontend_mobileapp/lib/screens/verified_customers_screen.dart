@@ -40,7 +40,7 @@ class _VerifiedCustomersScreenState extends State<VerifiedCustomersScreen> {
   }
 
   Future<void> _loadCustomers() async {
-    if (mounted) setState(() => _isLoading = true);
+    if (mounted && _customers.isEmpty) setState(() => _isLoading = true);
     try {
       final result =
           await _customerService.getVerifiedCustomerList(orderBy: _sortBy);
@@ -54,11 +54,13 @@ class _VerifiedCustomersScreenState extends State<VerifiedCustomersScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Could not load customers: $error'),
-            backgroundColor: Colors.red),
-      );
+      if (_customers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Could not load customers: $error'),
+              backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

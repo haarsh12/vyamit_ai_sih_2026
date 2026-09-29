@@ -1,8 +1,10 @@
 import '../models/customer.dart';
 import 'api_client.dart';
+import 'cache_service.dart';
 
 class CustomerService {
   final ApiClient _apiClient;
+  final CacheService _cacheService = CacheService();
 
   CustomerService(this._apiClient);
 
@@ -11,14 +13,20 @@ class CustomerService {
     int offset = 0,
     String orderBy = 'name',
   }) async {
+    final cacheKey = 'verified_customers_${limit}_${offset}_$orderBy';
     try {
       final data = await _apiClient.get(
         '/customers/?limit=$limit&offset=$offset&order_by=$orderBy',
       );
-
+      await _cacheService.saveData(cacheKey, data);
       return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data))
           .customers;
     } catch (e) {
+      final cached = await _cacheService.getData(cacheKey);
+      if (cached is Map) {
+        return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(cached))
+            .customers;
+      }
       throw Exception('Failed to load verified customers: $e');
     }
   }
@@ -28,21 +36,34 @@ class CustomerService {
     int offset = 0,
     String orderBy = 'name',
   }) async {
+    final cacheKey = 'verified_customer_list_${limit}_${offset}_$orderBy';
     try {
       final data = await _apiClient.get(
         '/customers/?limit=$limit&offset=$offset&order_by=$orderBy',
       );
+      await _cacheService.saveData(cacheKey, data);
       return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(data));
     } catch (e) {
+      final cached = await _cacheService.getData(cacheKey);
+      if (cached is Map) {
+        return VerifiedCustomerList.fromJson(Map<String, dynamic>.from(cached));
+      }
       throw Exception('Failed to load verified customers: $e');
     }
   }
 
   Future<Map<String, dynamic>> getCustomerDetails(int customerId) async {
+    final cacheKey = 'customer_details_$customerId';
     try {
       final data = await _apiClient.get('/customers/$customerId');
-      return data as Map<String, dynamic>;
+      final mapData = Map<String, dynamic>.from(data as Map);
+      await _cacheService.saveData(cacheKey, mapData);
+      return mapData;
     } catch (e) {
+      final cached = await _cacheService.getData(cacheKey);
+      if (cached is Map) {
+        return Map<String, dynamic>.from(cached);
+      }
       throw Exception('Failed to load customer details: $e');
     }
   }
@@ -52,11 +73,12 @@ class CustomerService {
     int limit = 50,
     int offset = 0,
   }) async {
+    final cacheKey = 'customer_bills_${customerId}_${limit}_$offset';
     try {
       final data = await _apiClient.get(
         '/customers/$customerId/bills?limit=$limit&offset=$offset',
       );
-
+      await _cacheService.saveData(cacheKey, data);
       return {
         'customer': data['customer'],
         'bills': (data['bills'] as List)
@@ -65,6 +87,16 @@ class CustomerService {
         'total_bills': data['total_bills'],
       };
     } catch (e) {
+      final cached = await _cacheService.getData(cacheKey);
+      if (cached is Map) {
+        return {
+          'customer': cached['customer'],
+          'bills': (cached['bills'] as List)
+              .map((json) => CustomerBillItem.fromJson(json))
+              .toList(),
+          'total_bills': cached['total_bills'],
+        };
+      }
       throw Exception('Failed to load customer bills: $e');
     }
   }
@@ -123,12 +155,18 @@ class CustomerService {
     int limit = 100,
     int offset = 0,
   }) async {
+    final cacheKey = 'customer_ledger_${customerId}_${limit}_$offset';
     try {
       final data = await _apiClient.get(
         '/customers/$customerId/ledger?limit=$limit&offset=$offset',
       );
+      await _cacheService.saveData(cacheKey, data);
       return CustomerLedgerStatement.fromJson(Map<String, dynamic>.from(data));
     } catch (e) {
+      final cached = await _cacheService.getData(cacheKey);
+      if (cached is Map) {
+        return CustomerLedgerStatement.fromJson(Map<String, dynamic>.from(cached));
+      }
       throw Exception('Failed to load customer ledger: $e');
     }
   }

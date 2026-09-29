@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../core/config.dart';
 import '../models/dashboard.dart';
+import 'cache_service.dart';
 
 class AnalyticsRequestException implements Exception {
   final String message;
@@ -16,6 +17,7 @@ class AnalyticsRequestException implements Exception {
 class AnalyticsService {
   final String baseUrl = ApiConfig.baseUrl;
   static const _requestTimeout = Duration(seconds: 30);
+  final CacheService _cacheService = CacheService();
 
   Future<DashboardData> getDashboard(String token, {int days = 30}) async {
     try {
@@ -30,6 +32,7 @@ class AnalyticsService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
+          await _cacheService.saveData('analytics_dashboard', data);
           return DashboardData.fromJson(data);
         }
       }
@@ -38,8 +41,12 @@ class AnalyticsService {
       );
     } on AnalyticsRequestException {
       rethrow;
-    } catch (_) {
-      throw AnalyticsRequestException(
+    } catch (e) {
+      final cached = await _cacheService.getData('analytics_dashboard');
+      if (cached is Map) {
+        return DashboardData.fromJson(Map<String, dynamic>.from(cached));
+      }
+      throw const AnalyticsRequestException(
         'Cannot reach the billing server. Check your internet connection and sign in again.',
       );
     }
@@ -59,6 +66,7 @@ class AnalyticsService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
+          await _cacheService.saveData('analytics_bills', data['bills']);
           return (data['bills'] as List)
               .map((bill) => BillHistory.fromJson(bill))
               .toList();
@@ -69,8 +77,14 @@ class AnalyticsService {
       );
     } on AnalyticsRequestException {
       rethrow;
-    } catch (_) {
-      throw AnalyticsRequestException(
+    } catch (e) {
+      final cached = await _cacheService.getData('analytics_bills');
+      if (cached is List) {
+        return cached
+            .map((bill) => BillHistory.fromJson(Map<String, dynamic>.from(bill as Map)))
+            .toList();
+      }
+      throw const AnalyticsRequestException(
         'Cannot reach the billing server. Check your internet connection and sign in again.',
       );
     }

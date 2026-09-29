@@ -28,7 +28,11 @@ class HistoryScreen extends StatefulWidget {
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
+class _HistoryScreenState extends State<HistoryScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final AnalyticsService _analyticsService = AnalyticsService();
   late final CustomerService _customerService;
   DashboardData? _dashboardData;
@@ -46,7 +50,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // If we don't have dashboard data yet, attempt to populate from cache first
+    if (_dashboardData == null) {
+      setState(() => _isLoading = true);
+    }
     try {
       _token = await AuthTokenStore().read();
       if (_token == null) {
@@ -68,10 +75,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() {
-        _loadError = error.toString();
-        _isLoading = false;
-      });
+      // If we managed to get cached data, don't show full error UI
+      if (_dashboardData != null) {
+        setState(() => _isLoading = false);
+      } else {
+        setState(() {
+          _loadError = error.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -93,6 +105,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text("Dashboard"),

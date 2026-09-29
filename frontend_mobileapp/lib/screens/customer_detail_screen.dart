@@ -37,7 +37,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Future<void> _loadCustomerData() async {
-    if (mounted) setState(() => _isLoading = true);
+    if (mounted && _customerData == null) setState(() => _isLoading = true);
     try {
       final results = await Future.wait<dynamic>([
         _customerService.getCustomerDetails(widget.customerId),
@@ -55,11 +55,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Could not load customer details: $error'),
-            backgroundColor: Colors.red),
-      );
+      if (_customerData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Could not load customer details: $error'),
+              backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

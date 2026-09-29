@@ -35,15 +35,24 @@ class _DoctorPatientListScreenState extends State<DoctorPatientListScreen>
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted && _patients.isEmpty) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final patients = await _service.patients(query: _search.text.trim());
-      if (mounted) setState(() => _patients = patients);
+      if (mounted) {
+        setState(() {
+          _patients = patients;
+          _error = null;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to load the patient list.');
+      if (mounted && _patients.isEmpty) {
+        setState(() => _error = 'Unable to load the patient list.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
