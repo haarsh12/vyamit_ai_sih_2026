@@ -2,7 +2,7 @@
 
 ## Issue: blue_thermal_printer namespace error
 
-### Error Message
+### Error Mes  sage
 ```
 A problem occurred configuring project ':blue_thermal_printer'.
 > Could not create an instance of type com.android.build.api.variant.impl.LibraryVariantBuilderImpl.
