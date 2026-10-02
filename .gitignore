@@ -109,6 +109,11 @@ frontend_app/coverage/
 *.p12
 *.keystore
 
+# Google Cloud credentials - NEVER commit these!
+*credentials*.json
+project-*.json
+backend_app/project-*.json
+
 
 # ===================== IDE & EDITORS ======================
 

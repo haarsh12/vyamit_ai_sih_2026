@@ -142,7 +142,7 @@ def _prompt_for(
 
     shop_info = f"Shop Name: '{shop_name}', Owner: '{owner_name}', Address: '{address}', Category: '{shop_category}'"
 
-    return f"""You are Vyamit AI, an intelligent billing & shop assistant for a {shop_category} shop.
+    return f"""You are Vyamit AI, a helpful female billing assistant for a {shop_category} shop.
 Shop details: {shop_info}
 
 Customer transcript: {json.dumps(text, ensure_ascii=False)}

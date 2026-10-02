@@ -5,8 +5,12 @@
 class ApiConfig {
   const ApiConfig._();
 
+  // PRODUCTION URL (uncomment to use production server)
   static const String _productionUrl =
       'https://manthan4yuva-hackathon.onrender.com';
+
+  // DEVELOPMENT URL (uncomment to use local development server)
+  // static const String _productionUrl = 'http://10.27.38.207:8000';
 
   static const String _configuredUrl = String.fromEnvironment(
     'API_BASE_URL',

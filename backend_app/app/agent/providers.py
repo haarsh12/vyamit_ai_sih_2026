@@ -35,10 +35,10 @@ def create_llm(settings: Settings) -> google.LLM:
         project=authentication.project_id,
         location=settings.google_cloud_location,
         credentials=authentication.credentials,
-        temperature=0.2,  # Lower temperature for faster, more deterministic responses
+        temperature=0.3,  # Slightly higher for better function call generation
         http_options=HttpOptions(api_version="v1"),
         # Streaming configuration for faster perceived response time
-        max_output_tokens=256,  # Limit output for faster voice responses
+        max_output_tokens=512,  # Increased for complex function calls
         top_p=0.95,
         top_k=40,
     )
