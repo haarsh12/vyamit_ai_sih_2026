@@ -5,3 +5,7 @@ builder = "nixpacks"
 startCommand = "python -m app.agent.runner dev"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 10
+
+# Health check to keep agent warm and detect if it's down
+healthcheckPath = "/"
+healthcheckTimeout = 30

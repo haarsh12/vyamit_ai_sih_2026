@@ -138,12 +138,14 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
     perf_timer.start_stage("parallel_provider_creation")
     
     logger.info(f"🔧 [{room_name}] Creating STT, LLM, TTS providers in parallel...")
+    
+    # Create providers in background threads to avoid blocking
     stt_task = asyncio.create_task(asyncio.to_thread(create_stt, settings))
     llm_task = asyncio.create_task(asyncio.to_thread(create_llm, settings))
     tts_task = asyncio.create_task(asyncio.to_thread(create_tts, settings))
     verify_task = asyncio.create_task(verify_session())
     
-    # Wait for all to complete
+    # Wait for providers first (they take longest)
     stt, llm, tts = await asyncio.gather(stt_task, llm_task, tts_task)
     perf_timer.end_stage("parallel_provider_creation")
     
@@ -168,9 +170,8 @@ async def vyamit_voice_agent(ctx: JobContext) -> None:
         turn_handling=TurnHandlingOptions(
             turn_detection=inference.TurnDetector()  # Using default settings - works better with current LiveKit SDK
         ),
-        # Wait for a final STT turn. Pre-emptive generation can leave both a
-        # provisional and final reply speaking in the same room.
-        preemptive_generation=False,
+        # Enable pre-emptive generation for faster response (starts generating while user is still speaking)
+        preemptive_generation=True,
         use_tts_aligned_transcript=True,
     )
     perf_timer.end_stage("session_creation")
